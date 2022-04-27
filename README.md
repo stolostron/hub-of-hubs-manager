@@ -33,7 +33,7 @@ The following environment variables are required for the most tasks below:
 make build
 ```
 
-<!-- ## Run Locally
+## Run Locally
 
 Disable the currently running controller in the cluster (if previously deployed):
 
@@ -43,10 +43,14 @@ kubectl scale deployment hub-of-hubs-all-in-one -n open-cluster-management --rep
 
 Set the following environment variables:
 
-* DATABASE_URL
-* WATCH_NAMESPACE
 * POD_NAMESPACE
-* 
+* WATCH_NAMESPACE
+* DATABASE_URL
+* HOH_STATUS_SYNC_INTERVAL
+
+`POD_NAMESPACE` should usually be `open-cluster-management`.
+
+`WATCH_NAMESPACE` can be defined empty so the controller will watch all the namespaces.
 
 Set the `DATABASE_URL` according to the PostgreSQL URL format: `postgres://YourUserName:YourURLEscapedPassword@YourHostname:5432/YourDatabaseName?sslmode=verify-full&pool_max_conns=50`.
 
@@ -56,13 +60,11 @@ Set the `DATABASE_URL` according to the PostgreSQL URL format: `postgres://YourU
 python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPassword'
 ```
 
-`WATCH_NAMESPACE` can be defined empty so the controller will watch all the namespaces.
-
-`POD_NAMESPACE` should usually be `open-cluster-management`
+`HOH_STATUS_SYNC_INTERVAL` is the interval status sync, default value is `5s`.
 
 ```
 ./bin/hub-of-hubs-all-in-one --kubeconfig $TOP_HUB_CONFIG
-``` -->
+```
 
 ## Build image
 
@@ -72,7 +74,7 @@ make build-images
 
 ## Deploy to a cluster
 
-<!-- 1.  Create a secret with your database url:
+1.  Create a secret with your database url:
 
     ```
     kubectl create secret generic hub-of-hubs-database-secret -n open-cluster-management --from-literal=url=$DATABASE_URL
@@ -82,4 +84,4 @@ make build-images
 
     ```
     COMPONENT=$(basename $(pwd)) envsubst < deploy/operator.yaml.template | kubectl apply -n open-cluster-management -f -
-    ``` -->
+    ```
