@@ -6,7 +6,7 @@ package controller
 import (
 	"fmt"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/db"
 	"k8s.io/apimachinery/pkg/api/equality"
 	subscriptionsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -14,21 +14,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-func addSubscriptionController(mgr ctrl.Manager, databaseConnectionPool *pgxpool.Pool) error {
+func AddSubscriptionController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&subscriptionsv1.Subscription{}).
 		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
 			return object.GetNamespace() != "open-cluster-management"
 		})).
 		Complete(&genericSpecToDBReconciler{
-			client:                 mgr.GetClient(),
-			databaseConnectionPool: databaseConnectionPool,
-			log:                    ctrl.Log.WithName("subscriptions-spec-syncer"),
-			tableName:              "subscriptions",
-			finalizerName:          "hub-of-hubs.open-cluster-management.io/subscription-cleanup",
-			createInstance:         func() client.Object { return &subscriptionsv1.Subscription{} },
-			cleanStatus:            cleanSubscriptionStatus,
-			areEqual:               areSubscriptionsEqual,
+			client:         mgr.GetClient(),
+			specDB:         specDB,
+			log:            ctrl.Log.WithName("subscriptions-spec-syncer"),
+			tableName:      "subscriptions",
+			finalizerName:  "hub-of-hubs.open-cluster-management.io/subscription-cleanup",
+			createInstance: func() client.Object { return &subscriptionsv1.Subscription{} },
+			cleanStatus:    cleanSubscriptionStatus,
+			areEqual:       areSubscriptionsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add subscription controller to the manager: %w", err)
 	}

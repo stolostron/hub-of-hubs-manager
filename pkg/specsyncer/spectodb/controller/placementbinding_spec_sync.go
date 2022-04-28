@@ -6,25 +6,25 @@ package controller
 import (
 	"fmt"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/db"
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func addPlacementBindingController(mgr ctrl.Manager, databaseConnectionPool *pgxpool.Pool) error {
+func AddPlacementBindingController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&policiesv1.PlacementBinding{}).
 		Complete(&genericSpecToDBReconciler{
-			client:                 mgr.GetClient(),
-			databaseConnectionPool: databaseConnectionPool,
-			log:                    ctrl.Log.WithName("placementbindings-spec-syncer"),
-			tableName:              "placementbindings",
-			finalizerName:          "hub-of-hubs.open-cluster-management.io/placementbinding-cleanup",
-			createInstance:         func() client.Object { return &policiesv1.PlacementBinding{} },
-			cleanStatus:            cleanPlacementBindingStatus,
-			areEqual:               arePlacementBindingsEqual,
+			client:         mgr.GetClient(),
+			specDB:         specDB,
+			log:            ctrl.Log.WithName("placementbindings-spec-syncer"),
+			tableName:      "placementbindings",
+			finalizerName:  "hub-of-hubs.open-cluster-management.io/placementbinding-cleanup",
+			createInstance: func() client.Object { return &policiesv1.PlacementBinding{} },
+			cleanStatus:    cleanPlacementBindingStatus,
+			areEqual:       arePlacementBindingsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add placement binding controller to the manager: %w", err)
 	}

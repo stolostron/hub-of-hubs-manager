@@ -6,25 +6,25 @@ package controller
 import (
 	"fmt"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/db"
 	"k8s.io/apimachinery/pkg/api/equality"
 	appsv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func addApplicationController(mgr ctrl.Manager, databaseConnectionPool *pgxpool.Pool) error {
+func AddApplicationController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1beta1.Application{}).
 		Complete(&genericSpecToDBReconciler{
-			client:                 mgr.GetClient(),
-			databaseConnectionPool: databaseConnectionPool,
-			log:                    ctrl.Log.WithName("applications-spec-syncer"),
-			tableName:              "applications",
-			finalizerName:          "hub-of-hubs.open-cluster-management.io/application-cleanup",
-			createInstance:         func() client.Object { return &appsv1beta1.Application{} },
-			cleanStatus:            cleanApplicationStatus,
-			areEqual:               areApplicationsEqual,
+			client:         mgr.GetClient(),
+			specDB:         specDB,
+			log:            ctrl.Log.WithName("applications-spec-syncer"),
+			tableName:      "applications",
+			finalizerName:  "hub-of-hubs.open-cluster-management.io/application-cleanup",
+			createInstance: func() client.Object { return &appsv1beta1.Application{} },
+			cleanStatus:    cleanApplicationStatus,
+			areEqual:       areApplicationsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add application controller to the manager: %w", err)
 	}
