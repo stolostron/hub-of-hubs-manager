@@ -6,7 +6,7 @@ package controller
 import (
 	"fmt"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/db"
 	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -18,21 +18,21 @@ const (
 	hohSystemNamespace = "hoh-system"
 )
 
-func addHubOfHubsConfigController(mgr ctrl.Manager, databaseConnectionPool *pgxpool.Pool) error {
+func AddHubOfHubsConfigController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&configv1.Config{}).
 		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
 			return object.GetNamespace() == hohSystemNamespace
 		})).
 		Complete(&genericSpecToDBReconciler{
-			client:                 mgr.GetClient(),
-			databaseConnectionPool: databaseConnectionPool,
-			log:                    ctrl.Log.WithName("hoh-configs-spec-syncer"),
-			tableName:              "configs",
-			finalizerName:          "hub-of-hubs.open-cluster-management.io/hoh-config-cleanup",
-			createInstance:         func() client.Object { return &configv1.Config{} },
-			cleanStatus:            cleanConfigStatus,
-			areEqual:               areConfigsEqual,
+			client:         mgr.GetClient(),
+			specDB:         specDB,
+			log:            ctrl.Log.WithName("hoh-configs-spec-syncer"),
+			tableName:      "configs",
+			finalizerName:  "hub-of-hubs.open-cluster-management.io/hoh-config-cleanup",
+			createInstance: func() client.Object { return &configv1.Config{} },
+			cleanStatus:    cleanConfigStatus,
+			areEqual:       areConfigsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add hoh config controller to the manager: %w", err)
 	}

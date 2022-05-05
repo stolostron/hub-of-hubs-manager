@@ -3,14 +3,19 @@ module github.com/stolostron/hub-of-hubs-all-in-one
 go 1.17
 
 require (
+	github.com/cenkalti/backoff/v4 v4.1.3
+	github.com/confluentinc/confluent-kafka-go v1.8.2
 	github.com/go-logr/logr v0.4.0
 	github.com/jackc/pgx/v4 v4.11.0
 	github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1
 	github.com/open-cluster-management/governance-policy-propagator v0.0.0-20211209195740-297c4b4e4fbc
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.4-0-20210816-699e5
+	github.com/open-horizon/edge-sync-service-client v0.0.0-20211025140051-714c20915232
 	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/spf13/pflag v1.0.5
+	github.com/stolostron/hub-of-hubs-data-types v0.3.2-0.20220403121807-a596cebbd7a4
 	github.com/stolostron/hub-of-hubs-data-types/apis/config v0.3.1
+	github.com/stolostron/hub-of-hubs-kafka-transport v0.3.2-0.20220216134627-cc88dc55ceac
 	k8s.io/apimachinery v0.21.3
 	k8s.io/client-go v12.0.0+incompatible
 	open-cluster-management.io/api v0.6.0
@@ -43,6 +48,7 @@ require (
 	github.com/go-openapi/spec v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.5 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
@@ -64,6 +70,7 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.11.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect

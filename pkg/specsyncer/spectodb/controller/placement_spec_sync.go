@@ -6,25 +6,25 @@ package controller
 import (
 	"fmt"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	clusterv1alpha1 "github.com/open-cluster-management/api/cluster/v1alpha1"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/db"
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func addPlacementController(mgr ctrl.Manager, databaseConnectionPool *pgxpool.Pool) error {
+func AddPlacementController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&clusterv1alpha1.Placement{}).
 		Complete(&genericSpecToDBReconciler{
-			client:                 mgr.GetClient(),
-			databaseConnectionPool: databaseConnectionPool,
-			log:                    ctrl.Log.WithName("placements-spec-syncer"),
-			tableName:              "placements",
-			finalizerName:          "hub-of-hubs.open-cluster-management.io/placement-cleanup",
-			createInstance:         func() client.Object { return &clusterv1alpha1.Placement{} },
-			cleanStatus:            cleanPlacementStatus,
-			areEqual:               arePlacementsEqual,
+			client:         mgr.GetClient(),
+			specDB:         specDB,
+			log:            ctrl.Log.WithName("placements-spec-syncer"),
+			tableName:      "placements",
+			finalizerName:  "hub-of-hubs.open-cluster-management.io/placement-cleanup",
+			createInstance: func() client.Object { return &clusterv1alpha1.Placement{} },
+			cleanStatus:    cleanPlacementStatus,
+			areEqual:       arePlacementsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add placement controller to the manager: %w", err)
 	}

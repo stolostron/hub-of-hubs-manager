@@ -29,7 +29,7 @@ The following environment variables are required for the most tasks below:
 
 ## Build
 
-```
+```bash
 make build
 ```
 
@@ -37,7 +37,7 @@ make build
 
 Disable the currently running controller in the cluster (if previously deployed):
 
-```
+```bash
 kubectl scale deployment hub-of-hubs-all-in-one -n open-cluster-management --replicas 0
 ```
 
@@ -45,10 +45,22 @@ Set the following environment variables:
 
 * POD_NAMESPACE
 * WATCH_NAMESPACE
-* DATABASE_URL
-* HOH_STATUS_SYNC_INTERVAL
+* PROCESS_DATABASE_URL
+* TRANSPORT_BRIDGE_DATABASE_URL
+* TRANSPORT_TYPE
+* TRANSPORT_MESSAGE_COMPRESSION_TYPE
+* KAFKA_PRODUCER_ID
+* KAFKA_BOOTSTRAP_SERVERS
+* KAFKA_TOPIC
+* KAFKA_MESSAGE_SIZE_LIMIT_KB
+* SYNC_SERVICE_PROTOCOL
+* SYNC_SERVICE_HOST
+* SYNC_SERVICE_PORT
+* STATUS_SYNC_INTERVAL
+* STATUS_SYNC_INTERVAL
+* DELETED_LABELS_TRIMMING_INTERVAL
 
-`POD_NAMESPACE` should usually be `open-cluster-management`.
+<!-- `POD_NAMESPACE` should usually be `open-cluster-management`.
 
 `WATCH_NAMESPACE` can be defined empty so the controller will watch all the namespaces.
 
@@ -60,28 +72,31 @@ Set the `DATABASE_URL` according to the PostgreSQL URL format: `postgres://YourU
 python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPassword'
 ```
 
-`HOH_STATUS_SYNC_INTERVAL` is the interval status sync, default value is `5s`.
+`STATUS_SYNC_INTERVAL` is the interval status sync, default value is `5s`. -->
 
-```
+Run with hub-of-hubs kubeconfig:
+
+```bash
 ./bin/hub-of-hubs-all-in-one --kubeconfig $TOP_HUB_CONFIG
 ```
 
 ## Build image
 
-```
+```bash
 make build-images
 ```
 
 ## Deploy to a cluster
 
-1.  Create a secret with your database url:
+1.  Create two secrets with your database url:
 
-    ```
-    kubectl create secret generic hub-of-hubs-database-secret -n open-cluster-management --from-literal=url=$DATABASE_URL
+    ```bash
+    kubectl create secret generic hub-of-hubs-database-secret -n open-cluster-management --from-literal=url=$PROCESS_DATABASE_URL
+    kubectl create secret generic hub-of-hubs-database-transport-bridge-secret -n open-cluster-management --from-literal=url=$TRANSPORT_BRIDGE_DATABASE_URL
     ```
 
-1.  Deploy the operator:
+2.  Deploy the operator:
 
-    ```
-    COMPONENT=$(basename $(pwd)) envsubst < deploy/operator.yaml.template | kubectl apply -n open-cluster-management -f -
+    ```bash
+    COMPONENT=$(basename $(pwd)) TRANSPORT_TYPE=kafka envsubst < deploy/operator.yaml.template | kubectl apply -n open-cluster-management -f -
     ```

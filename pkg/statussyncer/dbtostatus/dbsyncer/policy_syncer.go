@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package dbsyncers
+package dbsyncer
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/jackc/pgx/v4/pgxpool"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/db"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,12 +25,12 @@ const (
 	placementStatusTableName  = "policies_placement"
 )
 
-func addPolicyDBSyncer(mgr ctrl.Manager, databaseConnectionPool *pgxpool.Pool, syncInterval time.Duration) error {
+func AddPolicyDBSyncer(mgr ctrl.Manager, database db.DB, statusSyncInterval time.Duration) error {
 	err := mgr.Add(&policyDBSyncer{
-		client:                 mgr.GetClient(),
-		log:                    ctrl.Log.WithName("policies-db-syncer"),
-		databaseConnectionPool: databaseConnectionPool,
-		syncInterval:           syncInterval,
+		client:             mgr.GetClient(),
+		log:                ctrl.Log.WithName("policies-db-syncer"),
+		database:           database,
+		statusSyncInterval: statusSyncInterval,
 		dbEnumToPolicyComplianceStateMap: map[string]policiesv1.ComplianceState{
 			dbEnumCompliant:    policiesv1.Compliant,
 			dbEnumNonCompliant: policiesv1.NonCompliant,
@@ -46,8 +46,8 @@ func addPolicyDBSyncer(mgr ctrl.Manager, databaseConnectionPool *pgxpool.Pool, s
 type policyDBSyncer struct {
 	client                           client.Client
 	log                              logr.Logger
-	databaseConnectionPool           *pgxpool.Pool
-	syncInterval                     time.Duration
+	database                         db.DB
+	statusSyncInterval               time.Duration
 	dbEnumToPolicyComplianceStateMap map[string]policiesv1.ComplianceState
 }
 
@@ -64,7 +64,7 @@ func (syncer *policyDBSyncer) Start(ctx context.Context) error {
 }
 
 func (syncer *policyDBSyncer) periodicSync(ctx context.Context) {
-	ticker := time.NewTicker(syncer.syncInterval)
+	ticker := time.NewTicker(syncer.statusSyncInterval)
 
 	var (
 		cancelFunc     context.CancelFunc
@@ -88,7 +88,7 @@ func (syncer *policyDBSyncer) periodicSync(ctx context.Context) {
 				cancelFunc()
 			}
 
-			ctxWithTimeout, cancelFunc = context.WithTimeout(ctx, syncer.syncInterval)
+			ctxWithTimeout, cancelFunc = context.WithTimeout(ctx, syncer.statusSyncInterval)
 
 			syncer.sync(ctxWithTimeout)
 		}
@@ -98,7 +98,7 @@ func (syncer *policyDBSyncer) periodicSync(ctx context.Context) {
 func (syncer *policyDBSyncer) sync(ctx context.Context) {
 	syncer.log.Info("performing sync of policies status")
 
-	rows, err := syncer.databaseConnectionPool.Query(ctx,
+	rows, err := syncer.database.GetConn().Query(ctx,
 		fmt.Sprintf(`SELECT id, payload->'metadata'->>'name', payload->'metadata'->>'namespace' 
 		FROM spec.%s WHERE deleted = FALSE`, policiesSpecTableName))
 	if err != nil {
@@ -152,7 +152,7 @@ func (syncer *policyDBSyncer) handlePolicy(ctx context.Context, policy *policies
 func (syncer *policyDBSyncer) getComplianceStatus(ctx context.Context,
 	policy *policiesv1.Policy,
 ) ([]*policiesv1.CompliancePerClusterStatus, bool, error) {
-	rows, err := syncer.databaseConnectionPool.Query(ctx,
+	rows, err := syncer.database.GetConn().Query(ctx,
 		fmt.Sprintf(`SELECT cluster_name,leaf_hub_name,compliance FROM status.%s
 			WHERE id=$1 ORDER BY leaf_hub_name, cluster_name`, complianceStatusTableName), string(policy.GetUID()))
 	if err != nil {
@@ -193,7 +193,7 @@ func (syncer *policyDBSyncer) getPlacementStatus(ctx context.Context,
 ) ([]*policiesv1.Placement, error) {
 	var placement []*policiesv1.Placement
 
-	if err := syncer.databaseConnectionPool.QueryRow(ctx, fmt.Sprintf(`SELECT placement FROM status.%s
+	if err := syncer.database.GetConn().QueryRow(ctx, fmt.Sprintf(`SELECT placement FROM status.%s
 			WHERE id=$1`, placementStatusTableName), string(policy.GetUID())).Scan(&placement); err != nil {
 		return []*policiesv1.Placement{}, fmt.Errorf("failed to read placement from database: %w", err)
 	}

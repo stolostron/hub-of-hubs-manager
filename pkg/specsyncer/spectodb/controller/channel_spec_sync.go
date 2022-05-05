@@ -6,7 +6,7 @@ package controller
 import (
 	"fmt"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/db"
 	"k8s.io/apimachinery/pkg/api/equality"
 	channelsv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -14,21 +14,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-func addChannelController(mgr ctrl.Manager, databaseConnectionPool *pgxpool.Pool) error {
+func AddChannelController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&channelsv1.Channel{}).
 		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
 			return object.GetNamespace() != "open-cluster-management"
 		})).
 		Complete(&genericSpecToDBReconciler{
-			client:                 mgr.GetClient(),
-			databaseConnectionPool: databaseConnectionPool,
-			log:                    ctrl.Log.WithName("channels-spec-syncer"),
-			tableName:              "channels",
-			finalizerName:          "hub-of-hubs.open-cluster-management.io/channel-cleanup",
-			createInstance:         func() client.Object { return &channelsv1.Channel{} },
-			cleanStatus:            cleanChannelStatus,
-			areEqual:               areChannelsEqual,
+			client:         mgr.GetClient(),
+			specDB:         specDB,
+			log:            ctrl.Log.WithName("channels-spec-syncer"),
+			tableName:      "channels",
+			finalizerName:  "hub-of-hubs.open-cluster-management.io/channel-cleanup",
+			createInstance: func() client.Object { return &channelsv1.Channel{} },
+			cleanStatus:    cleanChannelStatus,
+			areEqual:       areChannelsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add channel controller to the manager: %w", err)
 	}

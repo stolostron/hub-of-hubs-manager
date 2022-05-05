@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	pgx "github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/db"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,14 +19,14 @@ import (
 )
 
 type genericSpecToDBReconciler struct {
-	client                 client.Client
-	log                    logr.Logger
-	databaseConnectionPool *pgxpool.Pool
-	tableName              string
-	finalizerName          string
-	createInstance         func() client.Object
-	cleanStatus            func(client.Object)
-	areEqual               func(client.Object, client.Object) bool
+	client         client.Client
+	log            logr.Logger
+	specDB         db.SpecDB
+	tableName      string
+	finalizerName  string
+	createInstance func() client.Object
+	cleanStatus    func(client.Object)
+	areEqual       func(client.Object, client.Object) bool
 }
 
 const (
@@ -57,12 +57,7 @@ func (r *genericSpecToDBReconciler) Reconcile(ctx context.Context, request ctrl.
 	if !r.areEqual(instance, instanceInTheDatabase) {
 		reqLogger.Info("Mismatch between hub and the database, updating the database")
 
-		_, err := r.databaseConnectionPool.Exec(ctx,
-			fmt.Sprintf("UPDATE spec.%s SET payload = $1 WHERE id = $2", r.tableName),
-			&instance, instanceUID)
-		if err != nil {
-			// wrap the error from an external package, see https://github.com/tomarrell/wrapcheck
-			err = fmt.Errorf("failed to update the database with new value: %w", err)
+		if err := r.specDB.UpdateSpecObject(ctx, r.tableName, instanceUID, &instance); err != nil {
 			reqLogger.Error(err, "Reconciliation failed")
 
 			return ctrl.Result{}, err
@@ -145,18 +140,13 @@ func (r *genericSpecToDBReconciler) processInstanceInTheDatabase(ctx context.Con
 	instanceUID string, log logr.Logger,
 ) (client.Object, error) {
 	instanceInTheDatabase := r.createInstance()
-	err := r.databaseConnectionPool.QueryRow(ctx,
-		fmt.Sprintf("SELECT payload FROM spec.%s WHERE id = $1", r.tableName),
-		instanceUID).Scan(&instanceInTheDatabase)
+	err := r.specDB.QuerySpecObject(ctx, r.tableName, instanceUID, &instanceInTheDatabase)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Info("The instance with the current UID does not exist in the database, inserting...")
 
-		_, err := r.databaseConnectionPool.Exec(ctx,
-			fmt.Sprintf("INSERT INTO spec.%s (id,payload) values($1, $2::jsonb)", r.tableName),
-			instanceUID, &instance)
-		if err != nil {
-			return nil, fmt.Errorf("insert into database failed: %w", err)
+		if err := r.specDB.InsertSpecObject(ctx, r.tableName, instanceUID, &instance); err != nil {
+			return nil, err
 		}
 
 		log.Info("The instance has been inserted into the database")
@@ -165,7 +155,7 @@ func (r *genericSpecToDBReconciler) processInstanceInTheDatabase(ctx context.Con
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the instance in the database: %w", err)
+		return nil, err
 	}
 
 	return instanceInTheDatabase, nil
@@ -192,20 +182,8 @@ func (r *genericSpecToDBReconciler) deleteFromTheDatabase(ctx context.Context, n
 ) error {
 	log.Info("Instance was deleted, update the deleted field in the database")
 
-	var err error
-
-	if namespace != "" {
-		_, err = r.databaseConnectionPool.Exec(ctx,
-			fmt.Sprintf(`UPDATE spec.%s SET deleted = true WHERE payload -> 'metadata' ->> 'name' = $1 AND
-			     payload -> 'metadata' ->> 'namespace' = $2 AND deleted = false`, r.tableName), name, namespace)
-	} else {
-		_, err = r.databaseConnectionPool.Exec(ctx,
-			fmt.Sprintf(`UPDATE spec.%s SET deleted = true WHERE payload -> 'metadata' ->> 'name' = $1 AND
-			     payload -> 'metadata' ->> 'namespace' IS NULL AND deleted = false`, r.tableName), name)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to delete instance from the database: %w", err)
+	if err := r.specDB.DeleteSpecObject(ctx, r.tableName, name, namespace); err != nil {
+		return err
 	}
 
 	log.Info("Instance has been updated as deleted in the database")

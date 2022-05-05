@@ -6,26 +6,26 @@ package controller
 import (
 	"fmt"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	"github.com/open-cluster-management/governance-policy-propagator/controllers/common"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/db"
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func addPolicyController(mgr ctrl.Manager, databaseConnectionPool *pgxpool.Pool) error {
+func AddPolicyController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&policiesv1.Policy{}).
 		Complete(&genericSpecToDBReconciler{
-			client:                 mgr.GetClient(),
-			databaseConnectionPool: databaseConnectionPool,
-			log:                    ctrl.Log.WithName("policies-spec-syncer"),
-			tableName:              "policies",
-			finalizerName:          "hub-of-hubs.open-cluster-management.io/policy-cleanup",
-			createInstance:         func() client.Object { return &policiesv1.Policy{} },
-			cleanStatus:            cleanPolicyStatus,
-			areEqual:               arePoliciesEqual,
+			client:         mgr.GetClient(),
+			specDB:         specDB,
+			log:            ctrl.Log.WithName("policies-spec-syncer"),
+			tableName:      "policies",
+			finalizerName:  "hub-of-hubs.open-cluster-management.io/policy-cleanup",
+			createInstance: func() client.Object { return &policiesv1.Policy{} },
+			cleanStatus:    cleanPolicyStatus,
+			areEqual:       arePoliciesEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add policy controller to the manager: %w", err)
 	}

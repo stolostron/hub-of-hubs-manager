@@ -6,25 +6,25 @@ package controller
 import (
 	"fmt"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	appsv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/db"
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func addPlacementRuleController(mgr ctrl.Manager, databaseConnectionPool *pgxpool.Pool) error {
+func AddPlacementRuleController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.PlacementRule{}).
 		Complete(&genericSpecToDBReconciler{
-			client:                 mgr.GetClient(),
-			databaseConnectionPool: databaseConnectionPool,
-			log:                    ctrl.Log.WithName("placementrules-spec-syncer"),
-			tableName:              "placementrules",
-			finalizerName:          "hub-of-hubs.open-cluster-management.io/placementrule-cleanup",
-			createInstance:         func() client.Object { return &appsv1.PlacementRule{} },
-			cleanStatus:            cleanPlacementRuleStatus,
-			areEqual:               arePlacementRulesEqual,
+			client:         mgr.GetClient(),
+			specDB:         specDB,
+			log:            ctrl.Log.WithName("placementrules-spec-syncer"),
+			tableName:      "placementrules",
+			finalizerName:  "hub-of-hubs.open-cluster-management.io/placementrule-cleanup",
+			createInstance: func() client.Object { return &appsv1.PlacementRule{} },
+			cleanStatus:    cleanPlacementRuleStatus,
+			areEqual:       arePlacementRulesEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add placement rule controller to the manager: %w", err)
 	}
