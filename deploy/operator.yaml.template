@@ -26,10 +26,6 @@ spec:
                 fieldRef:
                  apiVersion: v1
                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
             - name: WATCH_NAMESPACE
             - name: PROCESS_DATABASE_URL
               valueFrom:
@@ -47,10 +43,14 @@ spec:
               value: "gzip"
             - name: KAFKA_PRODUCER_ID
               value: "hub-of-hubs"
+            - name: KAFKA_CONSUMER_ID
+              value: "hub-of-hubs"
+            - name: KAFKA_PRODUCER_TOPIC
+              value: "spec"
+            - name: KAFKA_CONSUMER_TOPIC
+              value: "status"
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092"
-            - name: KAFKA_TOPIC
-              value: "spec"
             - name: KAFKA_MESSAGE_SIZE_LIMIT_KB
               value: "940"
             - name: SYNC_SERVICE_PROTOCOL
@@ -59,6 +59,12 @@ spec:
               value: "sync-service-css.sync-service.svc.cluster.local"
             - name: SYNC_SERVICE_PORT
               value: "9689"
+            - name: SYNC_SERVICE_POLLING_INTERVAL
+              value: "5"
+            - name: COMMITTER_INTERVAL
+              value: "40s"
+            - name: STATISTICS_LOG_INTERVAL_SECONDS
+              value: "0"
             - name: SPEC_SYNC_INTERVAL
               value: 5s
             - name: STATUS_SYNC_INTERVAL

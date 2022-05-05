@@ -15,15 +15,22 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/db/postgresql"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/compressor"
 	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/scheme"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/dbtotransport"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/spectodb"
-	dbtostatus "github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/dbtostatus"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/transport"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/transport/compressor"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/transport/kafka"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/transport/syncservice"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/db/postgresql"
+	specsyncer "github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/syncer"
+	spectransport "github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/transport"
+	speckafka "github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/transport/kafka"
+	specsyncservice "github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/transport/syncservice"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/spec2db"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statistics"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/db2status"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/db/workerpool"
+	statussyncer "github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/syncer"
+	statustransport "github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/transport"
+	statuskafka "github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/transport/kafka"
+	statussyncservice "github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/transport/syncservice"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -135,8 +142,28 @@ func readEnvVars() (string, string, string, string, string, string, time.Duratio
 	return leaderElectionNamespace, watchNamespace, processDatabaseURL, transportBridgeDatabaseURL, transportType, transportMsgCompressionType, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval, nil
 }
 
-// function to choose transport type based on env var.
-func getTransport(transportType string, transportMsgCompressorType string) (transport.Transport, error) {
+// function to determine whether the transport component requires initial-dependencies between bundles to be checked
+// (on load). If the returned is false, then we may assume that dependency of the initial bundle of
+// each type is met. Otherwise, there are no guarantees and the dependencies must be checked.
+func requireInitialDependencyChecks(transportType string) bool {
+	switch transportType {
+	case kafkaTransportTypeName:
+		return false
+		// once kafka consumer loads up, it starts reading from the earliest un-processed bundle,
+		// as in all bundles that precede the latter have been processed, which include its dependency
+		// bundle.
+
+		// the order guarantee also guarantees that if while loading this component, a new bundle is written to a-
+		// partition, then surely its dependency was written before it (leaf-hub-status-sync on kafka guarantees).
+	case syncServiceTransportTypeName:
+		fallthrough
+	default:
+		return true
+	}
+}
+
+// function to choose spec transport type based on env var.
+func getSpecTransport(transportType string, transportMsgCompressorType string) (spectransport.Transport, error) {
 	msgCompressor, err := compressor.NewCompressor(compressor.CompressionType(transportMsgCompressorType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create message-compressor: %w", err)
@@ -144,14 +171,14 @@ func getTransport(transportType string, transportMsgCompressorType string) (tran
 
 	switch transportType {
 	case kafkaTransportTypeName:
-		kafkaProducer, err := kafka.NewProducer(msgCompressor, ctrl.Log.WithName("kafka"))
+		kafkaProducer, err := speckafka.NewProducer(msgCompressor, ctrl.Log.WithName("kafka"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
 		}
 
 		return kafkaProducer, nil
 	case syncServiceTransportTypeName:
-		syncService, err := syncservice.NewSyncService(msgCompressor, ctrl.Log.WithName("sync-service"))
+		syncService, err := specsyncservice.NewSyncService(msgCompressor, ctrl.Log.WithName("sync-service"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create sync-service: %w", err)
 		}
@@ -163,8 +190,34 @@ func getTransport(transportType string, transportMsgCompressorType string) (tran
 	}
 }
 
-func createManager(leaderElectionNamespace, watchNamespace string, processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL, transportObj transport.Transport,
-	specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval time.Duration,
+// function to choose status transport type based on env var.
+func getStatusTransport(transportType string, conflationMgr *conflator.ConflationManager,
+	statistics *statistics.Statistics,
+) (statustransport.Transport, error) {
+	switch transportType {
+	case kafkaTransportTypeName:
+		kafkaConsumer, err := statuskafka.NewConsumer(ctrl.Log.WithName("kafka"), conflationMgr, statistics)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
+		}
+
+		return kafkaConsumer, nil
+	case syncServiceTransportTypeName:
+		syncService, err := statussyncservice.NewSyncService(ctrl.Log.WithName("sync-service"), conflationMgr, statistics)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create sync-service: %w", err)
+		}
+
+		return syncService, nil
+	default:
+		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errEnvVarIllegalValue, envVarTransportType,
+			transportType)
+	}
+}
+
+func createManager(leaderElectionNamespace, watchNamespace string, processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL, workersPool *workerpool.DBWorkerPool,
+	specTransportObj spectransport.Transport, statusTransportObj statustransport.Transport, conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
+	statistics *statistics.Statistics, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval time.Duration,
 ) (ctrl.Manager, error) {
 	options := ctrl.Options{
 		Namespace:               watchNamespace,
@@ -192,20 +245,24 @@ func createManager(leaderElectionNamespace, watchNamespace string, processPostgr
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	if err := spectodb.AddSpecToDBControllers(mgr, processPostgreSQL); err != nil {
-		return nil, fmt.Errorf("failed to add spectodb controllers: %w", err)
+	if err := spec2db.AddSpec2DBControllers(mgr, processPostgreSQL); err != nil {
+		return nil, fmt.Errorf("failed to add spec-to-db controllers: %w", err)
 	}
 
-	if err := dbtostatus.AddDBSyncers(mgr, processPostgreSQL, statusSyncInterval); err != nil {
-		return nil, fmt.Errorf("failed to add db syncers: %w", err)
+	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, specTransportObj, specSyncInterval); err != nil {
+		return nil, fmt.Errorf("failed to add db-to-transport syncers: %w", err)
 	}
 
-	if err := dbtotransport.AddDBToTransportSyncers(mgr, transportBridgePostgreSQL, transportObj, specSyncInterval); err != nil {
-		return nil, fmt.Errorf("failed to add dbtotransport syncers: %w", err)
-	}
-
-	if err := dbtotransport.AddStatusDBWatchers(mgr, transportBridgePostgreSQL, transportBridgePostgreSQL, deletedLabelsTrimmingInterval); err != nil {
+	if err := specsyncer.AddStatusDBWatchers(mgr, transportBridgePostgreSQL, transportBridgePostgreSQL, deletedLabelsTrimmingInterval); err != nil {
 		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
+	}
+
+	if err := db2status.AddDBSyncers(mgr, processPostgreSQL, statusSyncInterval); err != nil {
+		return nil, fmt.Errorf("failed to add status db syncers: %w", err)
+	}
+
+	if err := statussyncer.AddTransport2DBSyncers(mgr, workersPool, conflationManager, conflationReadyQueue, statusTransportObj, statistics); err != nil {
+		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
 	return mgr, nil
@@ -220,6 +277,13 @@ func doMain() int {
 	leaderElectionNamespace, watchNamespace, processDatabaseURL, transportBridgeDatabaseURL, transportType, transportMsgCompressionType, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval, err := readEnvVars()
 	if err != nil {
 		log.Error(err, "initialization error")
+		return 1
+	}
+
+	// create statistics
+	stats, err := statistics.NewStatistics(ctrl.Log.WithName("statistics"))
+	if err != nil {
+		log.Error(err, "initialization error", "failed to initialize", "statistics")
 		return 1
 	}
 
@@ -240,17 +304,47 @@ func doMain() int {
 
 	defer transportBridgePostgreSQL.Stop()
 
-	// transport layer initialization
-	transportObj, err := getTransport(transportType, transportMsgCompressionType)
+	// db layer initialization - worker pool + connection pool
+	dbWorkerPool, err := workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"), transportBridgeDatabaseURL, stats)
 	if err != nil {
-		log.Error(err, "transport initialization error")
+		log.Error(err, "initialization error", "failed to initialize", "DBWorkerPool")
 		return 1
 	}
 
-	transportObj.Start()
-	defer transportObj.Stop()
+	if err = dbWorkerPool.Start(); err != nil {
+		log.Error(err, "initialization error", "failed to start", "DBWorkerPool")
+		return 1
+	}
+	defer dbWorkerPool.Stop()
 
-	mgr, err := createManager(leaderElectionNamespace, watchNamespace, processPostgreSQL, transportBridgePostgreSQL, transportObj, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval)
+	// conflationReadyQueue is shared between conflation manager and dispatcher
+	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
+	requireInitialDependencyChecks := requireInitialDependencyChecks(transportType)
+	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
+		requireInitialDependencyChecks, stats) // manage all Conflation Units
+
+	// status transport layer initialization
+	statusTransportObj, err := getStatusTransport(transportType, conflationManager, stats)
+	if err != nil {
+		log.Error(err, "initialization error", "failed to initialize", "status transport")
+		return 1
+	}
+
+	statusTransportObj.Start()
+	defer statusTransportObj.Stop()
+
+	// spec transport layer initialization
+	specTransportObj, err := getSpecTransport(transportType, transportMsgCompressionType)
+	if err != nil {
+		log.Error(err, "initialization error", "failed to initialize", "spec transport")
+		return 1
+	}
+
+	specTransportObj.Start()
+	defer specTransportObj.Stop()
+
+	mgr, err := createManager(leaderElectionNamespace, watchNamespace, processPostgreSQL, transportBridgePostgreSQL, dbWorkerPool, specTransportObj, statusTransportObj,
+		conflationManager, conflationReadyQueue, stats, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
