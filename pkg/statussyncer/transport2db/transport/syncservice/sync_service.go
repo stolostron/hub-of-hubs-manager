@@ -14,12 +14,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/open-horizon/edge-sync-service-client/client"
 	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/compressor"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statistics"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
-	compressor "github.com/stolostron/hub-of-hubs-message-compression"
-	"github.com/stolostron/hub-of-hubs-message-compression/compressors"
 )
 
 const (
@@ -65,7 +64,7 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 		log:                    log,
 		client:                 syncServiceClient,
 		committer:              committer,
-		compressorsMap:         make(map[compressor.CompressionType]compressors.Compressor),
+		compressorsMap:         make(map[compressor.CompressionType]compressor.Compressor),
 		conflationManager:      conflationManager,
 		statistics:             statistics,
 		pollingInterval:        pollingInterval,
@@ -117,7 +116,7 @@ type SyncService struct {
 	log               logr.Logger
 	client            *client.SyncServiceClient
 	committer         *committer
-	compressorsMap    map[compressor.CompressionType]compressors.Compressor
+	compressorsMap    map[compressor.CompressionType]compressor.Compressor
 	conflationManager *conflator.ConflationManager
 	statistics        *statistics.Statistics
 

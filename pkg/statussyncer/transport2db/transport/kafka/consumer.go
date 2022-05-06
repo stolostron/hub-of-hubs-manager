@@ -13,11 +13,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stolostron/hub-of-hubs-kafka-transport/headers"
 	kafkaconsumer "github.com/stolostron/hub-of-hubs-kafka-transport/kafka-client/kafka-consumer"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/compressor"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statistics"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
-	compressor "github.com/stolostron/hub-of-hubs-message-compression"
-	"github.com/stolostron/hub-of-hubs-message-compression/compressors"
 )
 
 const (
@@ -72,7 +71,7 @@ func NewConsumer(log logr.Logger, conflationManager *conflator.ConflationManager
 		log:                    log,
 		kafkaConsumer:          kafkaConsumer,
 		committer:              committer,
-		compressorsMap:         make(map[compressor.CompressionType]compressors.Compressor),
+		compressorsMap:         make(map[compressor.CompressionType]compressor.Compressor),
 		conflationManager:      conflationManager,
 		statistics:             statistics,
 		msgChan:                msgChan,
@@ -114,7 +113,7 @@ type Consumer struct {
 	log               logr.Logger
 	kafkaConsumer     *kafkaconsumer.KafkaConsumer
 	committer         *committer
-	compressorsMap    map[compressor.CompressionType]compressors.Compressor
+	compressorsMap    map[compressor.CompressionType]compressor.Compressor
 	conflationManager *conflator.ConflationManager
 	statistics        *statistics.Statistics
 
