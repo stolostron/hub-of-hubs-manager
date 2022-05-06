@@ -2,21 +2,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ${COMPONENT}
+  name: hub-of-hubs-manager
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: ${COMPONENT}
+      name: hub-of-hubs-manager
   template:
     metadata:
       labels:
-        name: ${COMPONENT}
+        name: hub-of-hubs-manager
     spec:
-      serviceAccountName: ${COMPONENT}
+      serviceAccountName: hub-of-hubs-manager
       containers:
-        - name: ${COMPONENT}
-          image: ${REGISTRY}/${COMPONENT}:${IMAGE_TAG}
+        - name: hub-of-hubs-manager
+          image: ${REGISTRY}/hub-of-hubs-manager:${IMAGE_TAG}
           imagePullPolicy: Always
           args:
             - '--zap-devel=true'
@@ -75,20 +75,20 @@ spec:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: ${COMPONENT}
+  name: hub-of-hubs-manager
 subjects:
 - kind: ServiceAccount
-  name: ${COMPONENT}
+  name: hub-of-hubs-manager
   namespace: open-cluster-management
 roleRef:
   kind: ClusterRole
-  name: ${COMPONENT}
+  name: hub-of-hubs-manager
   apiGroup: rbac.authorization.k8s.io
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: ${COMPONENT}
+  name: hub-of-hubs-manager
 rules:
 - apiGroups:
   - "policy.open-cluster-management.io"
@@ -175,20 +175,20 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: ${COMPONENT}
+  name: hub-of-hubs-manager
 subjects:
 - kind: ServiceAccount
-  name: ${COMPONENT}
+  name: hub-of-hubs-manager
 roleRef:
   kind: Role
-  name: ${COMPONENT}
+  name: hub-of-hubs-manager
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   creationTimestamp: null
-  name: ${COMPONENT}
+  name: hub-of-hubs-manager
 rules:
 - apiGroups:
   - ""
@@ -234,7 +234,7 @@ rules:
 - apiGroups:
   - apps
   resourceNames:
-  - ${COMPONENT}
+  - hub-of-hubs-manager
   resources:
   - deployments/finalizers
   verbs:
@@ -252,4 +252,4 @@ rules:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: ${COMPONENT}
+  name: hub-of-hubs-manager
