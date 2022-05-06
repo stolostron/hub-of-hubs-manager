@@ -24,8 +24,8 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 
 The following environment variables are required for the most tasks below:
 
-* `REGISTRY`, for example `docker.io/morvencao`.
-* `IMAGE_TAG`, for example `v0.1.0`.
+* `REGISTRY`, for example `quay.io/morvencao`.
+* `IMAGE_TAG`, for example `latest` or `v0.1.0`.
 
 ## Build
 
@@ -103,5 +103,5 @@ make build-images
 2.  Deploy the operator:
 
     ```bash
-    COMPONENT=$(basename $(pwd)) TRANSPORT_TYPE=kafka envsubst < deploy/operator.yaml.template | kubectl apply -n open-cluster-management -f -
+    TRANSPORT_TYPE=kafka envsubst < deploy/operator.yaml.template | kubectl apply -n open-cluster-management -f -
     ```
