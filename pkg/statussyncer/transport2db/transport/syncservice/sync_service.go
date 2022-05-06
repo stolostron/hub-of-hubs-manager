@@ -13,11 +13,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-horizon/edge-sync-service-client/client"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statistics"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/transport"
 	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statistics"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
 	compressor "github.com/stolostron/hub-of-hubs-message-compression"
 	"github.com/stolostron/hub-of-hubs-message-compression/compressors"
 )

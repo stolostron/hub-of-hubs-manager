@@ -8,8 +8,8 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/transport"
 	kafkaconsumer "github.com/stolostron/hub-of-hubs-kafka-transport/kafka-client/kafka-consumer"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
 )
 
 const envVarCommitterInterval = "COMMITTER_INTERVAL"

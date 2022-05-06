@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/syncer/dbsyncer"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/syncer/statuswatcher"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/transport"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/syncer/dbsyncer"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/syncer/statuswatcher"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

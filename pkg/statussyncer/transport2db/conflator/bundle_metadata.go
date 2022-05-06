@@ -1,8 +1,8 @@
 package conflator
 
 import (
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/transport"
 	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
 )
 
 // BundleMetadata abstracts metadata of conflation elements inside the conflation units.

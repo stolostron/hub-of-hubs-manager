@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/bundle"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/intervalpolicy"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/transport"
 	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/bundle"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )

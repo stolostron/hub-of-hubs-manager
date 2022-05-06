@@ -1,4 +1,4 @@
-module github.com/stolostron/hub-of-hubs-all-in-one
+module github.com/stolostron/hub-of-hubs-manager
 
 go 1.17
 
