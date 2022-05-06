@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/helpers"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/transport"
 	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/helpers"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
 )
 
 // NewControlInfoDBSyncer creates a new instance of ControlInfoDBSyncer.

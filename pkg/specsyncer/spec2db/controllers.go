@@ -6,8 +6,8 @@ package spec2db
 import (
 	"fmt"
 
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/spec2db/controller"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/spec2db/controller"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

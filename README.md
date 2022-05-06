@@ -1,12 +1,12 @@
 [comment]: # ( Copyright Contributors to the Open Cluster Management project )
 
-# Hub-of-Hubs-All-in-One
+# Hub-of-Hubs-Manager
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/stolostron/hub-of-hubs-all-in-one)](https://goreportcard.com/report/github.com/stolostron/hub-of-hubs-all-in-one)
-[![Go Reference](https://pkg.go.dev/badge/github.com/stolostron/hub-of-hubs-all-in-one.svg)](https://pkg.go.dev/github.com/stolostron/hub-of-hubs-all-in-one)
-[![License](https://img.shields.io/github/license/stolostron/hub-of-hubs-all-in-one)](/LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/stolostron/hub-of-hubs-manager)](https://goreportcard.com/report/github.com/stolostron/hub-of-hubs-manager)
+[![Go Reference](https://pkg.go.dev/badge/github.com/stolostron/hub-of-hubs-manager.svg)](https://pkg.go.dev/github.com/stolostron/hub-of-hubs-manager)
+[![License](https://img.shields.io/github/license/stolostron/hub-of-hubs-manager)](/LICENSE)
 
-The all-in-one component of [Hub-of-Hubs](https://github.com/stolostron/hub-of-hubs).
+The manager component of [Hub-of-Hubs](https://github.com/stolostron/hub-of-hubs).
 
 Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 
@@ -38,7 +38,7 @@ make build
 Disable the currently running controller in the cluster (if previously deployed):
 
 ```bash
-kubectl scale deployment hub-of-hubs-all-in-one -n open-cluster-management --replicas 0
+kubectl scale deployment hub-of-hubs-manager -n open-cluster-management --replicas 0
 ```
 
 Set the following environment variables:
@@ -82,7 +82,7 @@ python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPass
 Run with hub-of-hubs kubeconfig:
 
 ```bash
-./bin/hub-of-hubs-all-in-one --kubeconfig $TOP_HUB_CONFIG
+./bin/hub-of-hubs-manager --kubeconfig $TOP_HUB_CONFIG
 ```
 
 ## Build image

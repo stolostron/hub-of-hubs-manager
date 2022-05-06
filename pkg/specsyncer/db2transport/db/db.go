@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/hub-of-hubs-data-types/bundle/spec"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/bundle"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

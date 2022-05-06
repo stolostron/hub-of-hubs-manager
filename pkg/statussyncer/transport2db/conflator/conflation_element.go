@@ -3,10 +3,10 @@ package conflator
 import (
 	"fmt"
 
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/conflator/dependency"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/transport"
 	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator/dependency"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
 )
 
 type conflationElement struct {

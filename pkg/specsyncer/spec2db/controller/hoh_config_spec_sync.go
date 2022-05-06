@@ -6,8 +6,8 @@ package controller
 import (
 	"fmt"
 
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/db"
 	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
 	client "sigs.k8s.io/controller-runtime/pkg/client"

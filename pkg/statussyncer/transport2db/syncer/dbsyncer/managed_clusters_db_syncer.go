@@ -6,13 +6,13 @@ import (
 
 	"github.com/go-logr/logr"
 	managedclustersv1 "github.com/open-cluster-management/api/cluster/v1"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/helpers"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/transport"
 	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/helpers"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
 )
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.

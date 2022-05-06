@@ -9,8 +9,8 @@ import (
 	set "github.com/deckarep/golang-set"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/statussyncer/transport2db/db/postgresql/batch"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db/postgresql/batch"
 )
 
 var (

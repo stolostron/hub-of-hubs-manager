@@ -8,7 +8,7 @@ import (
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	"github.com/open-cluster-management/governance-policy-propagator/controllers/common"
-	"github.com/stolostron/hub-of-hubs-all-in-one/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
