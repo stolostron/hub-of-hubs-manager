@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-logr/logr"
 	managedclustersv1 "github.com/open-cluster-management/api/cluster/v1"
-	datatypes "github.com/stolostron/hub-of-hubs-data-types"
-	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/bundle/status"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db"
@@ -36,7 +36,7 @@ type ManagedClustersDBSyncer struct {
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.ManagedClustersMsgKey,
+		MsgID:            constants.ManagedClustersMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
 		Predicate:        func() bool { return true }, // always get managed clusters bundles
 	})

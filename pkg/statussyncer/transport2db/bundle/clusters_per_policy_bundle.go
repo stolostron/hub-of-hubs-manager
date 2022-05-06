@@ -1,6 +1,6 @@
 package bundle
 
-import "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+import "github.com/stolostron/hub-of-hubs-manager/pkg/bundle/status"
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
 func NewClustersPerPolicyBundle() Bundle {

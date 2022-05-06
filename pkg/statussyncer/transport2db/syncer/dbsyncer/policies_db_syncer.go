@@ -6,9 +6,9 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	"github.com/go-logr/logr"
-	datatypes "github.com/stolostron/hub-of-hubs-data-types"
-	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
-	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	configv1 "github.com/stolostron/hub-of-hubs-manager/pkg/apis/config/v1"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/bundle/status"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator/dependency"
@@ -54,37 +54,37 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 	localPredicate := func() bool { return fullStatusPredicate() && syncer.config.Spec.EnableLocalPolicies }
 
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.ClustersPerPolicyMsgKey,
+		MsgID:            constants.ClustersPerPolicyMsgKey,
 		CreateBundleFunc: syncer.createClustersPerPolicyBundleFunc,
 		Predicate:        fullStatusPredicate,
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.PolicyCompleteComplianceMsgKey,
+		MsgID:            constants.PolicyCompleteComplianceMsgKey,
 		CreateBundleFunc: syncer.createCompleteComplianceStatusBundleFunc,
 		Predicate:        fullStatusPredicate,
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.PolicyDeltaComplianceMsgKey,
+		MsgID:            constants.PolicyDeltaComplianceMsgKey,
 		CreateBundleFunc: syncer.createDeltaComplianceStatusBundleFunc,
 		Predicate:        fullStatusPredicate,
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.MinimalPolicyComplianceMsgKey,
+		MsgID:            constants.MinimalPolicyComplianceMsgKey,
 		CreateBundleFunc: syncer.createMinimalComplianceStatusBundleFunc,
 		Predicate:        minimalStatusPredicate,
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.LocalClustersPerPolicyMsgKey,
+		MsgID:            constants.LocalClustersPerPolicyMsgKey,
 		CreateBundleFunc: syncer.createLocalClustersPerPolicyBundleFunc,
 		Predicate:        localPredicate,
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.LocalPolicyCompleteComplianceMsgKey,
+		MsgID:            constants.LocalPolicyCompleteComplianceMsgKey,
 		CreateBundleFunc: syncer.createLocalCompleteComplianceStatusBundleFunc,
 		Predicate:        localPredicate,
 	})

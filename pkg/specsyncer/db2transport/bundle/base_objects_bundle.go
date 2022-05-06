@@ -1,7 +1,7 @@
 package bundle
 
 import (
-	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -20,7 +20,7 @@ type baseObjectsBundle struct {
 
 // AddObject adds an object to the bundle.
 func (b *baseObjectsBundle) AddObject(object metav1.Object, objectUID string) {
-	setMetaDataAnnotation(object, datatypes.OriginOwnerReferenceAnnotation, objectUID)
+	setMetaDataAnnotation(object, constants.OriginOwnerReferenceAnnotation, objectUID)
 	b.Objects = append(b.Objects, object)
 }
 
