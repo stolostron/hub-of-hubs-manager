@@ -2061,8 +2061,6 @@ github.com/stolostron/hub-of-hubs-data-types/apis/config v0.3.1 h1:0fogAQm2+UxEc
 github.com/stolostron/hub-of-hubs-data-types/apis/config v0.3.1/go.mod h1:YWBM2mKXdSwvReJer3Q5aOHucDWPMXmhFLR7DRjRokc=
 github.com/stolostron/hub-of-hubs-kafka-transport v0.3.2-0.20220216134627-cc88dc55ceac h1:Yab0K7CZI4eipcbMowxy9NG5JadY3F4Eg4ms3xXSD2M=
 github.com/stolostron/hub-of-hubs-kafka-transport v0.3.2-0.20220216134627-cc88dc55ceac/go.mod h1:ORmbTRxjnHnO+389b0DZsem6qNJcSvj1Lo2JGBMwma8=
-github.com/stolostron/hub-of-hubs-message-compression v0.3.1 h1:PMRyWs3ixHNqYv4Xiq9VIHcok4AiU7yMfjjbyOzouWQ=
-github.com/stolostron/hub-of-hubs-message-compression v0.3.1/go.mod h1:j0jf0QX6+N2ynqWMULs8l6o++rET+qjLSQwiFw8cUFc=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v1.0.0/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
