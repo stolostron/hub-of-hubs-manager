@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/intervalpolicy"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/transport"
@@ -24,7 +24,7 @@ func AddManagedClusterLabelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.Spec
 		log:            ctrl.Log.WithName("managed-cluster-labels-db-to-transport-syncer"),
 		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
-			return syncManagedClusterLabelsBundles(ctx, transportObj, datatypes.ManagedClustersLabelsMsgKey, specDB,
+			return syncManagedClusterLabelsBundles(ctx, transportObj, constants.ManagedClustersLabelsMsgKey, specDB,
 				managedClusterLabelsDBTableName, lastSyncTimestampPtr)
 		},
 	}); err != nil {

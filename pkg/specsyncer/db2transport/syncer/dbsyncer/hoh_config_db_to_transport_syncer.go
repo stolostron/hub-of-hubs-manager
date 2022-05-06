@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
+	configv1 "github.com/stolostron/hub-of-hubs-manager/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/intervalpolicy"

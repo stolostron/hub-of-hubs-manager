@@ -3,7 +3,7 @@ package syncer
 import (
 	"fmt"
 
-	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
+	configv1 "github.com/stolostron/hub-of-hubs-manager/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db/workerpool"
 	configctl "github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/syncer/config"

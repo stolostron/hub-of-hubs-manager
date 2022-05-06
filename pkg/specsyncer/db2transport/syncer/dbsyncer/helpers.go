@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/transport"
@@ -58,7 +58,7 @@ func syncToTransport(transportObj transport.Transport, destination string, objID
 		return fmt.Errorf("failed to sync {objID: %s, destination: %s} to transport - %w", objID, destination, err)
 	}
 
-	transportObj.SendAsync(destination, objID, datatypes.SpecBundle, timestamp.Format(timeFormat), payloadBytes)
+	transportObj.SendAsync(destination, objID, constants.SpecBundle, timestamp.Format(timeFormat), payloadBytes)
 
 	return nil
 }

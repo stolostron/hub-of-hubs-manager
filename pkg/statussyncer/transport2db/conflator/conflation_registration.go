@@ -3,7 +3,7 @@ package conflator
 import (
 	"context"
 
-	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/bundle/status"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator/dependency"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db"

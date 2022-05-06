@@ -13,8 +13,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-horizon/edge-sync-service-client/client"
-	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/compressor"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statistics"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
@@ -153,7 +153,7 @@ func (s *SyncService) Register(registration *transport.BundleRegistration) {
 
 func (s *SyncService) handleBundles(ctx context.Context) {
 	// register for updates for spec bundles, this includes all types of spec bundles each with a different id.
-	s.client.StartPollingForUpdates(datatypes.StatusBundle, s.pollingInterval, s.objectsMetaDataChan)
+	s.client.StartPollingForUpdates(constants.StatusBundle, s.pollingInterval, s.objectsMetaDataChan)
 
 	for {
 		select {

@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	datatypes "github.com/stolostron/hub-of-hubs-data-types"
-	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
-	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	configv1 "github.com/stolostron/hub-of-hubs-manager/pkg/apis/config/v1"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/bundle/status"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db"
@@ -45,13 +45,13 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance
 	}
 
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.LocalPolicySpecMsgKey,
+		MsgID:            constants.LocalPolicySpecMsgKey,
 		CreateBundleFunc: syncer.createLocalPolicySpecBundleFunc,
 		Predicate:        predicate,
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.LocalPlacementRulesMsgKey,
+		MsgID:            constants.LocalPlacementRulesMsgKey,
 		CreateBundleFunc: syncer.createLocalPlacementRulesSpecBundleFunc,
 		Predicate:        predicate,
 	})

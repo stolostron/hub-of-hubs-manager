@@ -1,6 +1,6 @@
 package bundle
 
-import "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+import "github.com/stolostron/hub-of-hubs-manager/pkg/bundle/status"
 
 type baseBundle struct {
 	LeafHubName   string                `json:"leafHubName"`

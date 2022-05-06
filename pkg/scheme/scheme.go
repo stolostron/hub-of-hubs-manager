@@ -9,7 +9,7 @@ import (
 	clusterv1alpha1 "github.com/open-cluster-management/api/cluster/v1alpha1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	placementrulesv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
-	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
+	configv1 "github.com/stolostron/hub-of-hubs-manager/pkg/apis/config/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	channelsv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"

@@ -1,6 +1,6 @@
 package bundle
 
-import "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+import "github.com/stolostron/hub-of-hubs-manager/pkg/bundle/status"
 
 // NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.
 func NewMinimalComplianceStatusBundle() Bundle {
