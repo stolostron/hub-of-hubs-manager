@@ -43,27 +43,34 @@ kubectl scale deployment hub-of-hubs-manager -n open-cluster-management --replic
 
 Set the following environment variables:
 
-* POD_NAMESPACE
-* WATCH_NAMESPACE
-* PROCESS_DATABASE_URL
-* TRANSPORT_BRIDGE_DATABASE_URL
-* TRANSPORT_TYPE
-* TRANSPORT_MESSAGE_COMPRESSION_TYPE
-* KAFKA_PRODUCER_ID
-* KAFKA_CONSUMER_ID
-* KAFKA_PRODUCER_TOPIC
-* KAFKA_CONSUMER_TOPIC
-* KAFKA_BOOTSTRAP_SERVERS
-* KAFKA_MESSAGE_SIZE_LIMIT_KB
-* SYNC_SERVICE_PROTOCOL
-* SYNC_SERVICE_HOST
-* SYNC_SERVICE_PORT
-* SYNC_SERVICE_POLLING_INTERVAL
-* COMMITTER_INTERVAL
-* STATISTICS_LOG_INTERVAL_SECONDS
-* STATUS_SYNC_INTERVAL
-* STATUS_SYNC_INTERVAL
-* DELETED_LABELS_TRIMMING_INTERVAL
+* POD_NAMESPACE - the leader election namespace
+* WATCH_NAMESPACE - the watched namespaces, multiple namespace splited by comma.
+* PROCESS_DATABASE_URL - the URL of the database server for process user
+* TRANSPORT_BRIDGE_DATABASE_URL - the URL of the database server for transport-bridge user
+* TRANSPORT_TYPE - the transport type, "kafka" or "sync-service"
+* TRANSPORT_MESSAGE_COMPRESSION_TYPE - the compression type for transport message, "gzip" or "no-op"
+* KAFKA_PRODUCER_ID - the ID for kafka producer, "hub-of-hubs" by default
+* KAFKA_CONSUMER_ID - the ID for kafka consumer, "hub-of-hubs" by default
+* KAFKA_PRODUCER_TOPIC - the topic for kafka producer at hub-of-hubs side, should be "spec"
+* KAFKA_CONSUMER_TOPIC - the topic for kafka consumer at hub-of-hubs side, should be "status"
+* KAFKA_BOOTSTRAP_SERVERS - the bootstrap server of kafka, "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092" by default
+* KAFKA_MESSAGE_SIZE_LIMIT_KB - the limit size of kafka message, should be < 1000
+* SYNC_SERVICE_PROTOCOL - the protocol of sync-service, "http" by default
+* SYNC_SERVICE_HOST - the host of of sync-service, "sync-service-css.sync-service.svc.cluster.local" by default
+* SYNC_SERVICE_PORT - the port of of sync-service, "9689" by default
+* SYNC_SERVICE_POLLING_INTERVAL - the polling interval of sync-service, "5" by default
+* COMMITTER_INTERVAL - the committer interval of status-transport-bridge, "40s" by default
+* STATISTICS_LOG_INTERVAL_SECONDS - the interval for the statistics log, "0" by default
+* SPEC_SYNC_INTERVAL - the interval of spec-sync, "5s" by default
+* STATUS_SYNC_INTERVAL - the interval of status-sync, "5s" by default
+* DELETED_LABELS_TRIMMING_INTERVAL - the interval of deleted label trimming, "1h" by default
+* CLUSTER_API_URL - the URL of the Kubernetes API server
+* CLUSTER_API_CA_BUNDLE_PATH` - the CA bundle for the Kubernetes API server. If not provided, verification of the server certificates is skipped.
+* AUTHORIZATION_URL - the URL of the authorization server
+* AUTHORIZATION_CA_BUNDLE_PATH - the CA bundle for the authorization server. If not provided, verification of the server certificates is skipped.
+* SERVER_CERTIFICATE_PATH - the path to the file that contains the certificate for this server's TLS
+* SERVER_KEY_PATH - the path to the file that contains the private key for this server's TLS
+* SERVER_BASE_PATH - the base path of non-k8s-api server
 
 <!-- `POD_NAMESPACE` should usually be `open-cluster-management`.
 

@@ -4,9 +4,11 @@
 package main
 
 import (
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"runtime"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/compressor"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/nonk8sapi"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/scheme"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsyncer "github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/syncer"
@@ -38,25 +41,33 @@ import (
 )
 
 const (
-	metricsHost                             = "0.0.0.0"
-	metricsPort                       int32 = 8384
-	envVarControllerNamespace               = "POD_NAMESPACE"
-	envVarWatchNamespace                    = "WATCH_NAMESPACE"
-	envVarProcessDatabaseURL                = "PROCESS_DATABASE_URL"
-	envVarTransportBridgeDatabaseURL        = "TRANSPORT_BRIDGE_DATABASE_URL"
-	envVarTransportMsgCompressionType       = "TRANSPORT_MESSAGE_COMPRESSION_TYPE"
-	envVarTransportType                     = "TRANSPORT_TYPE"
-	kafkaTransportTypeName                  = "kafka"
-	syncServiceTransportTypeName            = "sync-service"
-	envVarSpecSyncInterval                  = "SPEC_SYNC_INTERVAL"
-	envVarStatusSyncInterval                = "STATUS_SYNC_INTERVAL"
-	envVarLabelsTrimmingInterval            = "DELETED_LABELS_TRIMMING_INTERVAL"
-	leaderElectionLockName                  = "hub-of-hubs-manager-lock"
+	metricsHost                                        = "0.0.0.0"
+	metricsPort                                  int32 = 8384
+	envVarControllerNamespace                          = "POD_NAMESPACE"
+	envVarWatchNamespace                               = "WATCH_NAMESPACE"
+	envVarProcessDatabaseURL                           = "PROCESS_DATABASE_URL"
+	envVarTransportBridgeDatabaseURL                   = "TRANSPORT_BRIDGE_DATABASE_URL"
+	envVarTransportMsgCompressionType                  = "TRANSPORT_MESSAGE_COMPRESSION_TYPE"
+	envVarTransportType                                = "TRANSPORT_TYPE"
+	envVarSpecSyncInterval                             = "SPEC_SYNC_INTERVAL"
+	envVarStatusSyncInterval                           = "STATUS_SYNC_INTERVAL"
+	envVarLabelsTrimmingInterval                       = "DELETED_LABELS_TRIMMING_INTERVAL"
+	environmentVariableClusterAPIURL                   = "CLUSTER_API_URL"
+	environmentVariableClusterAPICABundlePath          = "CLUSTER_API_CA_BUNDLE_PATH"
+	environmentVariableAuthorizationURL                = "AUTHORIZATION_URL"
+	environmentVariableAuthorizationCABundlePath       = "AUTHORIZATION_CA_BUNDLE_PATH"
+	environmentVariableServerCertificatePath           = "SERVER_CERTIFICATE_PATH"
+	environmentVariableServerKeyPath                   = "SERVER_KEY_PATH"
+	environmentVariableServerBasePath                  = "SERVER_BASE_PATH"
+	kafkaTransportTypeName                             = "kafka"
+	syncServiceTransportTypeName                       = "sync-service"
+	leaderElectionLockName                             = "hub-of-hubs-manager-lock"
 )
 
 var (
-	errEnvVarNotFound     = errors.New("environment variable not found")
-	errEnvVarIllegalValue = errors.New("environment variable illegal value")
+	errEnvVarNotFound          = errors.New("environment variable not found")
+	errEnvVarIllegalValue      = errors.New("environment variable illegal value")
+	errFailedToLoadCertificate = errors.New("failed to load certificate/key")
 )
 
 func initializeLogger() logr.Logger {
@@ -75,71 +86,142 @@ func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 }
 
-func readEnvVars() (string, string, string, string, string, string, time.Duration, time.Duration, time.Duration, error) {
-	leaderElectionNamespace, found := os.LookupEnv(envVarControllerNamespace)
+func readEnvVars() (string, string, string, string, string, string, string, string, string, string, string, string, string,
+	time.Duration, time.Duration, time.Duration, error,
+) {
+	controllerNamespace, found := os.LookupEnv(envVarControllerNamespace)
 	if !found {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarControllerNamespace)
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarControllerNamespace)
 	}
 
 	watchNamespace, found := os.LookupEnv(envVarWatchNamespace)
 	if !found {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarWatchNamespace)
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarWatchNamespace)
 	}
 
 	processDatabaseURL, found := os.LookupEnv(envVarProcessDatabaseURL)
 	if !found {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarProcessDatabaseURL)
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarProcessDatabaseURL)
 	}
 
 	transportBridgeDatabaseURL, found := os.LookupEnv(envVarTransportBridgeDatabaseURL)
 	if !found {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportBridgeDatabaseURL)
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportBridgeDatabaseURL)
 	}
 
 	transportType, found := os.LookupEnv(envVarTransportType)
 	if !found {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportType)
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportType)
 	}
 
 	transportMsgCompressionType, found := os.LookupEnv(envVarTransportMsgCompressionType)
 	if !found {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportMsgCompressionType)
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportMsgCompressionType)
+	}
+
+	clusterAPIURL, found := os.LookupEnv(environmentVariableClusterAPIURL)
+	if !found {
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, environmentVariableClusterAPIURL)
+	}
+
+	clusterAPICABundlePath, found := os.LookupEnv(environmentVariableClusterAPICABundlePath)
+	if !found {
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, environmentVariableClusterAPICABundlePath)
+	}
+
+	authorizationURL, found := os.LookupEnv(environmentVariableAuthorizationURL)
+	if !found {
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, environmentVariableAuthorizationURL)
+	}
+
+	authorizationCABundlePath, found := os.LookupEnv(environmentVariableAuthorizationCABundlePath)
+	if !found {
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, environmentVariableAuthorizationCABundlePath)
+	}
+
+	nonK8sAPIServerCertificatePath, found := os.LookupEnv(environmentVariableServerCertificatePath)
+	if !found {
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, environmentVariableServerCertificatePath)
+	}
+
+	nonK8sAPIServerKeyPath, found := os.LookupEnv(environmentVariableServerKeyPath)
+	if !found {
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, environmentVariableServerKeyPath)
+	}
+
+	nonK8sAPIServerBasePath, found := os.LookupEnv(environmentVariableServerBasePath)
+	if !found {
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, environmentVariableServerBasePath)
 	}
 
 	specSyncIntervalString, found := os.LookupEnv(envVarSpecSyncInterval)
 	if !found {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSpecSyncInterval)
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSpecSyncInterval)
 	}
 
 	specSyncInterval, err := time.ParseDuration(specSyncIntervalString)
 	if err != nil {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("the environment var %s is not a valid duration - %w",
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("the environment var %s is not a valid duration - %w",
 			specSyncInterval, err)
 	}
 
 	statusSyncIntervalString, found := os.LookupEnv(envVarStatusSyncInterval)
 	if !found {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarStatusSyncInterval)
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarStatusSyncInterval)
 	}
 
 	statusSyncInterval, err := time.ParseDuration(statusSyncIntervalString)
 	if err != nil {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("the environment var %s is not a valid duration - %w",
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("the environment var %s is not a valid duration - %w",
 			statusSyncInterval, err)
 	}
 
 	deletedLabelsTrimmingIntervalString, found := os.LookupEnv(envVarLabelsTrimmingInterval)
 	if !found {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarLabelsTrimmingInterval)
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarLabelsTrimmingInterval)
 	}
 
 	deletedLabelsTrimmingInterval, err := time.ParseDuration(deletedLabelsTrimmingIntervalString)
 	if err != nil {
-		return "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("the environment var %s is not a valid duration - %w",
+		return "", "", "", "", "", "", "", "", "", "", "", "", "", 0, 0, 0, fmt.Errorf("the environment var %s is not a valid duration - %w",
 			deletedLabelsTrimmingInterval, err)
 	}
 
-	return leaderElectionNamespace, watchNamespace, processDatabaseURL, transportBridgeDatabaseURL, transportType, transportMsgCompressionType, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval, nil
+	return controllerNamespace, watchNamespace, processDatabaseURL, transportBridgeDatabaseURL, transportType, transportMsgCompressionType,
+		clusterAPIURL, clusterAPICABundlePath, authorizationURL, authorizationCABundlePath, nonK8sAPIServerCertificatePath, nonK8sAPIServerKeyPath,
+		nonK8sAPIServerBasePath, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval, nil
+}
+
+func readCertificates(clusterAPICABundlePath, authorizationCABundlePath, certificatePath, keyPath string) ([]byte, []byte, tls.Certificate, error) {
+	var (
+		clusterAPICABundle    []byte
+		authorizationCABundle []byte
+		certificate           tls.Certificate
+	)
+
+	if clusterAPICABundlePath != "" {
+		clusterAPICABundle, err := ioutil.ReadFile(clusterAPICABundlePath)
+		if err != nil {
+			return clusterAPICABundle, authorizationCABundle, certificate,
+				fmt.Errorf("%w: %s", errFailedToLoadCertificate, clusterAPICABundlePath)
+		}
+	}
+
+	if authorizationCABundlePath != "" {
+		authorizationCABundle, err := ioutil.ReadFile(authorizationCABundlePath)
+		if err != nil {
+			return clusterAPICABundle, authorizationCABundle, certificate,
+				fmt.Errorf("%w: %s", errFailedToLoadCertificate, authorizationCABundle)
+		}
+	}
+
+	certificate, err := tls.LoadX509KeyPair(certificatePath, keyPath)
+	if err != nil {
+		return clusterAPICABundle, authorizationCABundle, certificate,
+			fmt.Errorf("%w: %s/%s", errFailedToLoadCertificate, certificatePath, keyPath)
+	}
+
+	return clusterAPICABundle, authorizationCABundle, certificate, nil
 }
 
 // function to determine whether the transport component requires initial-dependencies between bundles to be checked
@@ -215,15 +297,16 @@ func getStatusTransport(transportType string, conflationMgr *conflator.Conflatio
 	}
 }
 
-func createManager(leaderElectionNamespace, watchNamespace string, processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL, workersPool *workerpool.DBWorkerPool,
+func createManager(controllerNamespace, watchNamespace string, processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL, workersPool *workerpool.DBWorkerPool,
 	specTransportObj spectransport.Transport, statusTransportObj statustransport.Transport, conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
-	statistics *statistics.Statistics, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval time.Duration,
+	statistics *statistics.Statistics, clusterAPIURL, authorizationURL, nonK8sAPIServerCertificatePath, nonK8sAPIServerKeyPath, nonK8sAPIServerBasePath string, clusterAPICABundle, authorizationCABundle []byte,
+	specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval time.Duration,
 ) (ctrl.Manager, error) {
 	options := ctrl.Options{
 		Namespace:               watchNamespace,
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
-		LeaderElectionNamespace: leaderElectionNamespace,
+		LeaderElectionNamespace: controllerNamespace,
 		LeaderElectionID:        leaderElectionLockName,
 	}
 
@@ -243,6 +326,10 @@ func createManager(leaderElectionNamespace, watchNamespace string, processPostgr
 
 	if err := scheme.AddToScheme(mgr.GetScheme()); err != nil {
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
+	}
+
+	if err := nonk8sapi.AddNonK8sApiServer(mgr, clusterAPIURL, authorizationURL, nonK8sAPIServerBasePath, nonK8sAPIServerCertificatePath, nonK8sAPIServerKeyPath, clusterAPICABundle, authorizationCABundle, processPostgreSQL); err != nil {
+		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 	}
 
 	if err := spec2db.AddSpec2DBControllers(mgr, processPostgreSQL); err != nil {
@@ -274,9 +361,15 @@ func doMain() int {
 
 	printVersion(log)
 
-	leaderElectionNamespace, watchNamespace, processDatabaseURL, transportBridgeDatabaseURL, transportType, transportMsgCompressionType, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval, err := readEnvVars()
+	controllerNamespace, watchNamespace, processDatabaseURL, transportBridgeDatabaseURL, transportType, transportMsgCompressionType, clusterAPIURL, clusterAPICABundlePath, authorizationURL, authorizationCABundlePath, nonK8sAPIServerCertificatePath, nonK8sAPIServerKeyPath, nonK8sAPIServerBasePath, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval, err := readEnvVars()
 	if err != nil {
 		log.Error(err, "initialization error")
+		return 1
+	}
+
+	clusterAPICABundle, authorizationCABundle, _, err := readCertificates(clusterAPICABundlePath, authorizationCABundlePath, nonK8sAPIServerCertificatePath, nonK8sAPIServerKeyPath)
+	if err != nil {
+		log.Error(err, "failed to read certificates")
 		return 1
 	}
 
@@ -343,17 +436,18 @@ func doMain() int {
 	specTransportObj.Start()
 	defer specTransportObj.Stop()
 
-	mgr, err := createManager(leaderElectionNamespace, watchNamespace, processPostgreSQL, transportBridgePostgreSQL, dbWorkerPool, specTransportObj, statusTransportObj,
-		conflationManager, conflationReadyQueue, stats, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval)
+	mgr, err := createManager(controllerNamespace, watchNamespace, processPostgreSQL, transportBridgePostgreSQL, dbWorkerPool, specTransportObj, statusTransportObj,
+		conflationManager, conflationReadyQueue, stats, clusterAPIURL, authorizationURL, nonK8sAPIServerCertificatePath, nonK8sAPIServerKeyPath, nonK8sAPIServerBasePath,
+		clusterAPICABundle, authorizationCABundle, specSyncInterval, statusSyncInterval, deletedLabelsTrimmingInterval)
 	if err != nil {
-		log.Error(err, "Failed to create manager")
+		log.Error(err, "failed to create manager")
 		return 1
 	}
 
-	log.Info("Starting the Cmd.")
+	log.Info("starting the Cmd.")
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		log.Error(err, "Manager exited non-zero")
+		log.Error(err, "manager exited non-zero")
 		return 1
 	}
 
