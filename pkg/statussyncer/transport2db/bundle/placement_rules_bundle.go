@@ -1,6 +1,6 @@
 package bundle
 
-import placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+import placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 
 // NewPlacementRulesBundle creates a new instance of PlacementRulesBundle.
 func NewPlacementRulesBundle() Bundle {
@@ -10,7 +10,7 @@ func NewPlacementRulesBundle() Bundle {
 // PlacementRulesBundle abstracts management of placement-rules bundle.
 type PlacementRulesBundle struct {
 	baseBundle
-	Objects []*placementrulesv1.PlacementRule `json:"objects"`
+	Objects []*placementrulev1.PlacementRule `json:"objects"`
 }
 
 // GetObjects return all the objects that the bundle holds.

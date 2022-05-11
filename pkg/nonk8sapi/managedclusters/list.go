@@ -15,7 +15,6 @@ import (
 	set "github.com/deckarep/golang-set"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
-	clusterv1 "github.com/open-cluster-management/api/cluster/v1"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/nonk8sapi/authentication"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/nonk8sapi/util"
 	corev1 "k8s.io/api/core/v1"
@@ -25,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 )
 
 const (

@@ -1,13 +1,13 @@
 package status
 
-import v1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
+import policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 // MinimalPolicyComplianceStatus holds information for minimal policy compliance status.
 type MinimalPolicyComplianceStatus struct {
-	PolicyID             string               `json:"policyId"`
-	RemediationAction    v1.RemediationAction `json:"remediationAction"`
-	NonCompliantClusters int                  `json:"nonCompliantClusters"`
-	AppliedClusters      int                  `json:"appliedClusters"`
+	PolicyID             string                     `json:"policyId"`
+	RemediationAction    policyv1.RemediationAction `json:"remediationAction"`
+	NonCompliantClusters int                        `json:"nonCompliantClusters"`
+	AppliedClusters      int                        `json:"appliedClusters"`
 }
 
 // BaseMinimalComplianceStatusBundle the base struct for minimal compliance status bundle.

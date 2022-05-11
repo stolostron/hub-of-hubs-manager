@@ -8,7 +8,7 @@ import (
 
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/equality"
-	channelsv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	channelv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -16,7 +16,7 @@ import (
 
 func AddChannelController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&channelsv1.Channel{}).
+		For(&channelv1.Channel{}).
 		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
 			return object.GetNamespace() != "open-cluster-management"
 		})).
@@ -25,8 +25,8 @@ func AddChannelController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("channels-spec-syncer"),
 			tableName:      "channels",
-			finalizerName:  "hub-of-hubs.open-cluster-management.io/channel-cleanup",
-			createInstance: func() client.Object { return &channelsv1.Channel{} },
+			finalizerName:  hohCleanupFinalizer,
+			createInstance: func() client.Object { return &channelv1.Channel{} },
 			cleanStatus:    cleanChannelStatus,
 			areEqual:       areChannelsEqual,
 		}); err != nil {
@@ -37,17 +37,17 @@ func AddChannelController(mgr ctrl.Manager, specDB db.SpecDB) error {
 }
 
 func cleanChannelStatus(instance client.Object) {
-	channel, ok := instance.(*channelsv1.Channel)
+	channel, ok := instance.(*channelv1.Channel)
 	if !ok {
 		panic("wrong instance passed to cleanChannelStatus: not a Channel")
 	}
 
-	channel.Status = channelsv1.ChannelStatus{}
+	channel.Status = channelv1.ChannelStatus{}
 }
 
 func areChannelsEqual(instance1, instance2 client.Object) bool {
-	channel1, ok1 := instance1.(*channelsv1.Channel)
-	channel2, ok2 := instance2.(*channelsv1.Channel)
+	channel1, ok1 := instance1.(*channelv1.Channel)
+	channel2, ok2 := instance2.(*channelv1.Channel)
 
 	if !ok1 || !ok2 {
 		return false

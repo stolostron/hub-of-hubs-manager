@@ -31,6 +31,7 @@ type genericSpecToDBReconciler struct {
 
 const (
 	requeuePeriodSeconds = 5
+	hohCleanupFinalizer  = "hub-of-hubs.open-cluster-management.io/resource-cleanup"
 )
 
 func (r *genericSpecToDBReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {

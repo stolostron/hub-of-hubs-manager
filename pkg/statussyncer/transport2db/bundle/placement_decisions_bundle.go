@@ -1,6 +1,6 @@
 package bundle
 
-import clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+import clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 
 // NewPlacementDecisionsBundle creates a new instance of PlacementDecisionsBundle.
 func NewPlacementDecisionsBundle() Bundle {
@@ -10,7 +10,7 @@ func NewPlacementDecisionsBundle() Bundle {
 // PlacementDecisionsBundle abstracts management of placement-decisions bundle.
 type PlacementDecisionsBundle struct {
 	baseBundle
-	Objects []*clustersv1beta1.PlacementDecision `json:"objects"`
+	Objects []*clusterv1beta1.PlacementDecision `json:"objects"`
 }
 
 // GetObjects return all the objects that the bundle holds.

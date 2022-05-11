@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/errors"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -22,18 +22,19 @@ const (
 
 	policiesSpecTableName     = "policies"
 	complianceStatusTableName = "compliance"
-	placementStatusTableName  = "policies_placement"
 )
 
 func AddPolicyDBSyncer(mgr ctrl.Manager, database db.DB, statusSyncInterval time.Duration) error {
-	err := mgr.Add(&policyDBSyncer{
-		client:             mgr.GetClient(),
-		log:                ctrl.Log.WithName("policies-db-syncer"),
-		database:           database,
+	err := mgr.Add(&genericDBSyncer{
 		statusSyncInterval: statusSyncInterval,
-		dbEnumToPolicyComplianceStateMap: map[string]policiesv1.ComplianceState{
-			dbEnumCompliant:    policiesv1.Compliant,
-			dbEnumNonCompliant: policiesv1.NonCompliant,
+		statusSyncFunc: func(ctx context.Context) {
+			syncPolicies(ctx,
+				ctrl.Log.WithName("policies-db-syncer"),
+				database, mgr.GetClient(),
+				map[string]policyv1.ComplianceState{
+					dbEnumCompliant:    policyv1.Compliant,
+					dbEnumNonCompliant: policyv1.NonCompliant,
+				})
 		},
 	})
 	if err != nil {
@@ -43,66 +44,16 @@ func AddPolicyDBSyncer(mgr ctrl.Manager, database db.DB, statusSyncInterval time
 	return nil
 }
 
-type policyDBSyncer struct {
-	client                           client.Client
-	log                              logr.Logger
-	database                         db.DB
-	statusSyncInterval               time.Duration
-	dbEnumToPolicyComplianceStateMap map[string]policiesv1.ComplianceState
-}
+func syncPolicies(ctx context.Context, log logr.Logger, database db.DB, k8sClient client.Client,
+	dbEnumToPolicyComplianceStateMap map[string]policyv1.ComplianceState,
+) {
+	log.Info("performing sync of policies status")
 
-func (syncer *policyDBSyncer) Start(ctx context.Context) error {
-	ctxWithCancel, cancelContext := context.WithCancel(ctx)
-	defer cancelContext()
-
-	go syncer.periodicSync(ctxWithCancel)
-
-	<-ctx.Done() // blocking wait for stop event
-	syncer.log.Info("stop performing sync")
-
-	return nil // context cancel is called before exiting this function
-}
-
-func (syncer *policyDBSyncer) periodicSync(ctx context.Context) {
-	ticker := time.NewTicker(syncer.statusSyncInterval)
-
-	var (
-		cancelFunc     context.CancelFunc
-		ctxWithTimeout context.Context
-	)
-
-	for {
-		select {
-		case <-ctx.Done(): // we have received a signal to stop
-			ticker.Stop()
-
-			if cancelFunc != nil {
-				cancelFunc()
-			}
-
-			return
-
-		case <-ticker.C:
-			// cancel the operation of the previous tick
-			if cancelFunc != nil {
-				cancelFunc()
-			}
-
-			ctxWithTimeout, cancelFunc = context.WithTimeout(ctx, syncer.statusSyncInterval)
-
-			syncer.sync(ctxWithTimeout)
-		}
-	}
-}
-
-func (syncer *policyDBSyncer) sync(ctx context.Context) {
-	syncer.log.Info("performing sync of policies status")
-
-	rows, err := syncer.database.GetConn().Query(ctx,
+	rows, err := database.GetConn().Query(ctx,
 		fmt.Sprintf(`SELECT id, payload->'metadata'->>'name', payload->'metadata'->>'namespace' 
 		FROM spec.%s WHERE deleted = FALSE`, policiesSpecTableName))
 	if err != nil {
-		syncer.log.Error(err, "error in getting policies spec")
+		log.Error(err, "error in getting policies spec")
 		return
 	}
 
@@ -111,56 +62,55 @@ func (syncer *policyDBSyncer) sync(ctx context.Context) {
 
 		err := rows.Scan(&id, &name, &namespace)
 		if err != nil {
-			syncer.log.Error(err, "error in select", "table", policiesSpecTableName)
+			log.Error(err, "error in select", "table", policiesSpecTableName)
 			continue
 		}
 
-		instance := &policiesv1.Policy{}
-		err = syncer.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, instance)
+		instance := &policyv1.Policy{}
 
+		err = k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, instance)
 		if err != nil {
-			syncer.log.Error(err, "error in getting CR", "name", name, "namespace", namespace)
+			log.Error(err, "error in getting CR", "name", name, "namespace", namespace)
 			continue
 		}
 
-		go syncer.handlePolicy(ctx, instance)
+		go handlePolicy(ctx, log, database, k8sClient, dbEnumToPolicyComplianceStateMap, instance)
 	}
 }
 
-func (syncer *policyDBSyncer) handlePolicy(ctx context.Context, policy *policiesv1.Policy) {
-	syncer.log.Info("handling a policy", "uid", policy.GetUID())
-
-	compliancePerClusterStatuses, hasNonCompliantClusters, err := syncer.getComplianceStatus(ctx, policy)
+func handlePolicy(ctx context.Context, log logr.Logger, database db.DB,
+	k8sClient client.StatusClient, dbEnumToPolicyComplianceStateMap map[string]policyv1.ComplianceState,
+	policy *policyv1.Policy,
+) {
+	compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(ctx, database,
+		dbEnumToPolicyComplianceStateMap, policy)
 	if err != nil {
-		syncer.log.Error(err, "failed to get compliance status of a policy", "uid", policy.GetUID())
+		log.Error(err, "failed to get compliance status of a policy", "uid", policy.GetUID())
 		return
 	}
 
-	placementStatus, err := syncer.getPlacementStatus(ctx, policy)
-	if err != nil {
-		syncer.log.Error(err, "failed to get placement status of a policy", "uid", policy.GetUID())
-		return
-	}
-
-	if err = syncer.updateComplianceStatus(ctx, policy, compliancePerClusterStatuses,
-		hasNonCompliantClusters, placementStatus); err != nil {
-		syncer.log.Error(err, "Failed to update policy status")
+	if err = updateComplianceStatus(ctx, k8sClient, policy, compliancePerClusterStatuses,
+		hasNonCompliantClusters); err != nil {
+		log.Error(err, "failed to update policy status")
 	}
 }
 
 // returns array of CompliancePerClusterStatus, whether the policy has any NonCompliant cluster, and error.
-func (syncer *policyDBSyncer) getComplianceStatus(ctx context.Context,
-	policy *policiesv1.Policy,
-) ([]*policiesv1.CompliancePerClusterStatus, bool, error) {
-	rows, err := syncer.database.GetConn().Query(ctx,
+func getComplianceStatus(ctx context.Context, database db.DB,
+	dbEnumToPolicyComplianceStateMap map[string]policyv1.ComplianceState,
+	policy *policyv1.Policy,
+) ([]*policyv1.CompliancePerClusterStatus, bool, error) {
+	rows, err := database.GetConn().Query(ctx,
 		fmt.Sprintf(`SELECT cluster_name,leaf_hub_name,compliance FROM status.%s
 			WHERE id=$1 ORDER BY leaf_hub_name, cluster_name`, complianceStatusTableName), string(policy.GetUID()))
 	if err != nil {
-		return []*policiesv1.CompliancePerClusterStatus{}, false,
+		return []*policyv1.CompliancePerClusterStatus{}, false,
 			fmt.Errorf("error in getting policy compliance statuses from DB - %w", err)
 	}
 
-	var compliancePerClusterStatuses []*policiesv1.CompliancePerClusterStatus
+	defer rows.Close()
+
+	var compliancePerClusterStatuses []*policyv1.CompliancePerClusterStatus
 
 	hasNonCompliantClusters := false
 
@@ -168,17 +118,17 @@ func (syncer *policyDBSyncer) getComplianceStatus(ctx context.Context,
 		var clusterName, leafHubName, complianceInDB string
 
 		if err := rows.Scan(&clusterName, &leafHubName, &complianceInDB); err != nil {
-			return []*policiesv1.CompliancePerClusterStatus{}, false,
+			return []*policyv1.CompliancePerClusterStatus{}, false,
 				fmt.Errorf("error in getting policy compliance statuses from DB - %w", err)
 		}
 
-		compliance := syncer.dbEnumToPolicyComplianceStateMap[complianceInDB]
+		compliance := dbEnumToPolicyComplianceStateMap[complianceInDB]
 
-		if compliance == policiesv1.NonCompliant {
+		if compliance == policyv1.NonCompliant {
 			hasNonCompliantClusters = true
 		}
 
-		compliancePerClusterStatuses = append(compliancePerClusterStatuses, &policiesv1.CompliancePerClusterStatus{
+		compliancePerClusterStatuses = append(compliancePerClusterStatuses, &policyv1.CompliancePerClusterStatus{
 			ComplianceState:  compliance,
 			ClusterName:      clusterName,
 			ClusterNamespace: clusterName,
@@ -188,22 +138,9 @@ func (syncer *policyDBSyncer) getComplianceStatus(ctx context.Context,
 	return compliancePerClusterStatuses, hasNonCompliantClusters, nil
 }
 
-func (syncer *policyDBSyncer) getPlacementStatus(ctx context.Context,
-	policy *policiesv1.Policy,
-) ([]*policiesv1.Placement, error) {
-	var placement []*policiesv1.Placement
-
-	if err := syncer.database.GetConn().QueryRow(ctx, fmt.Sprintf(`SELECT placement FROM status.%s
-			WHERE id=$1`, placementStatusTableName), string(policy.GetUID())).Scan(&placement); err != nil {
-		return []*policiesv1.Placement{}, fmt.Errorf("failed to read placement from database: %w", err)
-	}
-
-	return placement, nil
-}
-
-func (syncer *policyDBSyncer) updateComplianceStatus(ctx context.Context, policy *policiesv1.Policy,
-	compliancePerClusterStatuses []*policiesv1.CompliancePerClusterStatus, hasNonCompliantClusters bool,
-	placementStatus []*policiesv1.Placement,
+func updateComplianceStatus(ctx context.Context, k8sClient client.StatusClient, policy *policyv1.Policy,
+	compliancePerClusterStatuses []*policyv1.CompliancePerClusterStatus,
+	hasNonCompliantClusters bool,
 ) error {
 	originalPolicy := policy.DeepCopy()
 
@@ -211,14 +148,12 @@ func (syncer *policyDBSyncer) updateComplianceStatus(ctx context.Context, policy
 	policy.Status.ComplianceState = ""
 
 	if hasNonCompliantClusters {
-		policy.Status.ComplianceState = policiesv1.NonCompliant
+		policy.Status.ComplianceState = policyv1.NonCompliant
 	} else if len(compliancePerClusterStatuses) > 0 {
-		policy.Status.ComplianceState = policiesv1.Compliant
+		policy.Status.ComplianceState = policyv1.Compliant
 	}
 
-	policy.Status.Placement = placementStatus
-
-	err := syncer.client.Status().Patch(ctx, policy, client.MergeFrom(originalPolicy))
+	err := k8sClient.Status().Patch(ctx, policy, client.MergeFrom(originalPolicy))
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to update policy CR: %w", err)
 	}

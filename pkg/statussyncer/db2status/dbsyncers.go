@@ -16,6 +16,11 @@ import (
 func AddDBSyncers(mgr ctrl.Manager, database db.DB, statusSyncInterval time.Duration) error {
 	addDBSyncerFunctions := []func(ctrl.Manager, db.DB, time.Duration) error{
 		dbsyncer.AddPolicyDBSyncer,
+		dbsyncer.AddPlacementRuleStatusDBSyncer,
+		dbsyncer.AddPlacementStatusDBSyncer,
+		dbsyncer.AddPlacementDecisionDBSyncer,
+		dbsyncer.AddSubscriptionStatusStatusDBSyncer,
+		dbsyncer.AddSubscriptionReportDBSyncer,
 	}
 
 	for _, addDBSyncerFunction := range addDBSyncerFunctions {
