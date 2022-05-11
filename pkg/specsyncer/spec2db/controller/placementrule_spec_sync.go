@@ -6,23 +6,23 @@ package controller
 import (
 	"fmt"
 
-	appsv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/equality"
+	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func AddPlacementRuleController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&appsv1.PlacementRule{}).
+		For(&placementrulev1.PlacementRule{}).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("placementrules-spec-syncer"),
 			tableName:      "placementrules",
-			finalizerName:  "hub-of-hubs.open-cluster-management.io/placementrule-cleanup",
-			createInstance: func() client.Object { return &appsv1.PlacementRule{} },
+			finalizerName:  hohCleanupFinalizer,
+			createInstance: func() client.Object { return &placementrulev1.PlacementRule{} },
 			cleanStatus:    cleanPlacementRuleStatus,
 			areEqual:       arePlacementRulesEqual,
 		}); err != nil {
@@ -33,18 +33,18 @@ func AddPlacementRuleController(mgr ctrl.Manager, specDB db.SpecDB) error {
 }
 
 func cleanPlacementRuleStatus(instance client.Object) {
-	placementRule, ok := instance.(*appsv1.PlacementRule)
+	placementRule, ok := instance.(*placementrulev1.PlacementRule)
 
 	if !ok {
 		panic("wrong instance passed to cleanPlacementRuleStatus: not a PlacementRule")
 	}
 
-	placementRule.Status = appsv1.PlacementRuleStatus{}
+	placementRule.Status = placementrulev1.PlacementRuleStatus{}
 }
 
 func arePlacementRulesEqual(instance1, instance2 client.Object) bool {
-	placementRule1, ok1 := instance1.(*appsv1.PlacementRule)
-	placementRule2, ok2 := instance2.(*appsv1.PlacementRule)
+	placementRule1, ok1 := instance1.(*placementrulev1.PlacementRule)
+	placementRule2, ok2 := instance2.(*placementrulev1.PlacementRule)
 
 	if !ok1 || !ok2 {
 		return false

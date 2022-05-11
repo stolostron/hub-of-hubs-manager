@@ -21,7 +21,7 @@ func AddManagedClusterSetController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("managedclustersets-spec-syncer"),
 			tableName:      "managedclustersets",
-			finalizerName:  "hub-of-hubs.open-cluster-management.io/managedclusterset-cleanup",
+			finalizerName:  hohCleanupFinalizer,
 			createInstance: func() client.Object { return &clusterv1beta1.ManagedClusterSet{} },
 			cleanStatus:    cleanManagedClusterSetStatus,
 			areEqual:       areManagedClusterSetsEqual,

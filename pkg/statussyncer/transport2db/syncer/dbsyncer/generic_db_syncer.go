@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/bundle/status"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db"
@@ -60,7 +61,7 @@ func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	idToVersionMapFromDB, err := dbClient.GetDistinctIDAndVersion(ctx, syncer.dbSchema, syncer.dbTableName, leafHubName)
+	idToVersionMapFromDB, err := dbClient.GetResourceIDToVersionByLeafHub(ctx, syncer.dbSchema, syncer.dbTableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", syncer.dbSchema, syncer.dbTableName, err)
 	}
@@ -73,7 +74,7 @@ func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle
 			continue
 		}
 
-		uid := string(specificObj.GetUID())
+		uid := getGenericResourceUID(specificObj)
 		resourceVersionFromDB, objExistsInDB := idToVersionMapFromDB[uid]
 
 		if !objExistsInDB { // object not found in the db table
@@ -102,4 +103,13 @@ func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
 
 	return nil
+}
+
+func getGenericResourceUID(resourceObject metav1.Object) string {
+	if originOwnerReference, found := resourceObject.GetAnnotations()[constants.OriginOwnerReferenceAnnotation]; found {
+		// safe if GetAnnotations() returns nil
+		return originOwnerReference
+	}
+
+	return string(resourceObject.GetUID())
 }

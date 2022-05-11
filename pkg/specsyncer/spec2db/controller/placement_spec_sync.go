@@ -6,9 +6,9 @@ package controller
 import (
 	"fmt"
 
-	clusterv1alpha1 "github.com/open-cluster-management/api/cluster/v1alpha1"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/equality"
+	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -21,7 +21,7 @@ func AddPlacementController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("placements-spec-syncer"),
 			tableName:      "placements",
-			finalizerName:  "hub-of-hubs.open-cluster-management.io/placement-cleanup",
+			finalizerName:  hohCleanupFinalizer,
 			createInstance: func() client.Object { return &clusterv1alpha1.Placement{} },
 			cleanStatus:    cleanPlacementStatus,
 			areEqual:       arePlacementsEqual,

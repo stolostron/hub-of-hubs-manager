@@ -10,7 +10,7 @@ import (
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/intervalpolicy"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	appsv1beta1 "sigs.k8s.io/application/api/v1beta1"
+	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -23,7 +23,7 @@ const (
 func AddApplicationsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transportObj transport.Transport,
 	specSyncInterval time.Duration,
 ) error {
-	createObjFunc := func() metav1.Object { return &appsv1beta1.Application{} }
+	createObjFunc := func() metav1.Object { return &applicationv1beta1.Application{} }
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{

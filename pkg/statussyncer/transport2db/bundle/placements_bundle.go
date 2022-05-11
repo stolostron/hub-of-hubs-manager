@@ -1,6 +1,6 @@
 package bundle
 
-import clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+import clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 
 // NewPlacementsBundle creates a new instance of PlacementsBundle.
 func NewPlacementsBundle() Bundle {
@@ -10,7 +10,7 @@ func NewPlacementsBundle() Bundle {
 // PlacementsBundle abstracts management of placement bundle.
 type PlacementsBundle struct {
 	baseBundle
-	Objects []*clustersv1beta1.Placement `json:"objects"`
+	Objects []*clusterv1beta1.Placement `json:"objects"`
 }
 
 // GetObjects return all the objects that the bundle holds.

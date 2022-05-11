@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	managedclustersv1 "github.com/open-cluster-management/api/cluster/v1"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/bundle/status"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
@@ -13,6 +12,7 @@ import (
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/helpers"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 )
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
@@ -75,7 +75,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 	batchBuilder := dbClient.NewManagedClustersBatchBuilder(db.StatusSchema, db.ManagedClustersTableName, leafHubName)
 
 	for _, object := range bundle.GetObjects() {
-		cluster, ok := object.(*managedclustersv1.ManagedCluster)
+		cluster, ok := object.(*clusterv1.ManagedCluster)
 		if !ok {
 			continue // do not handle objects other than ManagedCluster
 		}

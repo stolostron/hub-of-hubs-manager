@@ -6,23 +6,23 @@ package controller
 import (
 	"fmt"
 
-	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/equality"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func AddPlacementBindingController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1.PlacementBinding{}).
+		For(&policyv1.PlacementBinding{}).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("placementbindings-spec-syncer"),
 			tableName:      "placementbindings",
-			finalizerName:  "hub-of-hubs.open-cluster-management.io/placementbinding-cleanup",
-			createInstance: func() client.Object { return &policiesv1.PlacementBinding{} },
+			finalizerName:  hohCleanupFinalizer,
+			createInstance: func() client.Object { return &policyv1.PlacementBinding{} },
 			cleanStatus:    cleanPlacementBindingStatus,
 			areEqual:       arePlacementBindingsEqual,
 		}); err != nil {
@@ -33,18 +33,18 @@ func AddPlacementBindingController(mgr ctrl.Manager, specDB db.SpecDB) error {
 }
 
 func cleanPlacementBindingStatus(instance client.Object) {
-	placementBinding, ok := instance.(*policiesv1.PlacementBinding)
+	placementBinding, ok := instance.(*policyv1.PlacementBinding)
 
 	if !ok {
 		panic("wrong instance passed to cleanPlacementBindingStatus: not a PlacementBinding")
 	}
 
-	placementBinding.Status = policiesv1.PlacementBindingStatus{}
+	placementBinding.Status = policyv1.PlacementBindingStatus{}
 }
 
 func arePlacementBindingsEqual(instance1, instance2 client.Object) bool {
-	placementBinding1, ok1 := instance1.(*policiesv1.PlacementBinding)
-	placementBinding2, ok2 := instance2.(*policiesv1.PlacementBinding)
+	placementBinding1, ok1 := instance1.(*policyv1.PlacementBinding)
+	placementBinding2, ok2 := instance2.(*policyv1.PlacementBinding)
 
 	if !ok1 || !ok2 {
 		return false

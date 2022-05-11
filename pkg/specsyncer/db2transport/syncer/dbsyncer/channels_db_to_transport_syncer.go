@@ -10,7 +10,7 @@ import (
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/intervalpolicy"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	channelsv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	channelv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -23,7 +23,7 @@ const (
 func AddChannelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transportObj transport.Transport,
 	specSyncInterval time.Duration,
 ) error {
-	createObjFunc := func() metav1.Object { return &channelsv1.Channel{} }
+	createObjFunc := func() metav1.Object { return &channelv1.Channel{} }
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{

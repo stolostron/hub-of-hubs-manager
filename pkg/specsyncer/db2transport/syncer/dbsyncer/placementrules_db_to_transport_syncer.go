@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	appsv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/intervalpolicy"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -23,7 +23,7 @@ const (
 func AddPlacementRulesDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transportObj transport.Transport,
 	specSyncInterval time.Duration,
 ) error {
-	createObjFunc := func() metav1.Object { return &appsv1.PlacementRule{} }
+	createObjFunc := func() metav1.Object { return &placementrulev1.PlacementRule{} }
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{

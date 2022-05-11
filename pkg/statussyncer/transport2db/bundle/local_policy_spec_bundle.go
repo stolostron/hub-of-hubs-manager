@@ -1,7 +1,7 @@
 package bundle
 
 import (
-	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
 // NewLocalPolicySpecBundle creates a new instance of LocalPolicySpecBundle.
@@ -12,7 +12,7 @@ func NewLocalPolicySpecBundle() Bundle {
 // LocalPolicySpecBundle abstracts management of local policies spec bundle.
 type LocalPolicySpecBundle struct {
 	baseBundle
-	Objects []*policiesv1.Policy `json:"objects"`
+	Objects []*policyv1.Policy `json:"objects"`
 }
 
 // GetObjects returns the objects in the bundle.

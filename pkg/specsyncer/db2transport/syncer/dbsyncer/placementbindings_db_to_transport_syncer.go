@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/intervalpolicy"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -23,7 +23,7 @@ const (
 func AddPlacementBindingsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transportObj transport.Transport,
 	specSyncInterval time.Duration,
 ) error {
-	createObjFunc := func() metav1.Object { return &policiesv1.PlacementBinding{} }
+	createObjFunc := func() metav1.Object { return &policyv1.PlacementBinding{} }
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{

@@ -6,24 +6,24 @@ package controller
 import (
 	"fmt"
 
-	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
-	"github.com/open-cluster-management/governance-policy-propagator/controllers/common"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/equality"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	"open-cluster-management.io/governance-policy-propagator/controllers/common"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func AddPolicyController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1.Policy{}).
+		For(&policyv1.Policy{}).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("policies-spec-syncer"),
 			tableName:      "policies",
-			finalizerName:  "hub-of-hubs.open-cluster-management.io/policy-cleanup",
-			createInstance: func() client.Object { return &policiesv1.Policy{} },
+			finalizerName:  hohCleanupFinalizer,
+			createInstance: func() client.Object { return &policyv1.Policy{} },
 			cleanStatus:    cleanPolicyStatus,
 			areEqual:       arePoliciesEqual,
 		}); err != nil {
@@ -34,18 +34,18 @@ func AddPolicyController(mgr ctrl.Manager, specDB db.SpecDB) error {
 }
 
 func cleanPolicyStatus(instance client.Object) {
-	policy, ok := instance.(*policiesv1.Policy)
+	policy, ok := instance.(*policyv1.Policy)
 
 	if !ok {
 		panic("wrong instance passed to cleanPolicyStatus: not a Policy")
 	}
 
-	policy.Status = policiesv1.PolicyStatus{}
+	policy.Status = policyv1.PolicyStatus{}
 }
 
 func arePoliciesEqual(instance1, instance2 client.Object) bool {
-	policy1, ok1 := instance1.(*policiesv1.Policy)
-	policy2, ok2 := instance2.(*policiesv1.Policy)
+	policy1, ok1 := instance1.(*policyv1.Policy)
+	policy2, ok2 := instance2.(*policyv1.Policy)
 
 	if !ok1 || !ok2 {
 		return false
