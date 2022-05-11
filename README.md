@@ -24,7 +24,7 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 
 The following environment variables are required for the most tasks below:
 
-* `REGISTRY`, for example `quay.io/morvencao`.
+* `REGISTRY`, for example `quay.io/open-cluster-management-hub-of-hubs`.
 * `IMAGE_TAG`, for example `latest` or `v0.1.0`.
 
 ## Build

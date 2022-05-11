@@ -15,7 +15,7 @@
 #   - clean-all - superset of 'clean' that also removes vendor dir
 
 COMPONENT := $(shell basename $(shell pwd))
-REGISTRY ?= quay.io/morvencao
+REGISTRY ?= quay.io/open-cluster-management-hub-of-hubs
 IMAGE_TAG ?= latest
 IMAGE := ${REGISTRY}/${COMPONENT}:${IMAGE_TAG}
 
