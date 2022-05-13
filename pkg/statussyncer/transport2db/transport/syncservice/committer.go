@@ -3,7 +3,6 @@ package syncservice
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -11,23 +10,10 @@ import (
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
 )
 
-const envVarCommitterInterval = "COMMITTER_INTERVAL"
-
 // newCommitter returns a new instance of Committer.
-func newCommitter(log logr.Logger, client *client.SyncServiceClient,
-	getBundlesMetadataFunc transport.GetBundlesMetadataFunc,
+func newCommitter(committerInterval time.Duration, client *client.SyncServiceClient,
+	getBundlesMetadataFunc transport.GetBundlesMetadataFunc, log logr.Logger,
 ) (*committer, error) {
-	committerIntervalString, found := os.LookupEnv(envVarCommitterInterval)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarCommitterInterval)
-	}
-
-	committerInterval, err := time.ParseDuration(committerIntervalString)
-	if err != nil {
-		return nil, fmt.Errorf("the environment var %s is not valid duration - %w",
-			committerIntervalString, err)
-	}
-
 	return &committer{
 		log:                           log,
 		client:                        client,

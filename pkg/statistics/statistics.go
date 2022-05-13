@@ -2,10 +2,7 @@ package statistics
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -14,28 +11,16 @@ import (
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/helpers"
 )
 
-const (
-	envVarLogInterval = "STATISTICS_LOG_INTERVAL_SECONDS"
-)
-
-var errEnvVarNotFound = errors.New("environment variable not found")
+type StatisticsConfig struct {
+	LogInterval time.Duration
+}
 
 // NewStatistics creates a new instance of Statistics.
-func NewStatistics(log logr.Logger) (*Statistics, error) {
-	logIntervalString, found := os.LookupEnv(envVarLogInterval)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarLogInterval)
-	}
-
-	logInterval, err := strconv.Atoi(logIntervalString)
-	if err != nil {
-		return nil, fmt.Errorf("the environment var %s is not valid interval - %w", envVarLogInterval, err)
-	}
-
+func NewStatistics(log logr.Logger, statisticsConfig *StatisticsConfig) (*Statistics, error) {
 	statistics := &Statistics{
 		log:           log,
 		bundleMetrics: make(map[string]*bundleMetrics),
-		logInterval:   logInterval,
+		logInterval:   statisticsConfig.LogInterval,
 	}
 
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.ManagedClustersStatusBundle{})] = newBundleMetrics()
@@ -63,7 +48,7 @@ type Statistics struct {
 	numOfAvailableDBWorkers  int
 	conflationReadyQueueSize int
 	bundleMetrics            map[string]*bundleMetrics
-	logInterval              int
+	logInterval              time.Duration
 }
 
 // IncrementNumberOfReceivedBundles increments total number of received bundles of the specific type via transport.
@@ -125,11 +110,11 @@ func (s *Statistics) Start(ctx context.Context) error {
 }
 
 func (s *Statistics) run(ctx context.Context) {
-	if s.logInterval <= 0 {
+	if s.logInterval.Seconds() <= 0 {
 		return // if log interval is set to 0 or negative value, statistics log is disabled.
 	}
 
-	ticker := time.NewTicker(time.Duration(s.logInterval) * time.Second)
+	ticker := time.NewTicker(s.logInterval)
 
 	for {
 		select {

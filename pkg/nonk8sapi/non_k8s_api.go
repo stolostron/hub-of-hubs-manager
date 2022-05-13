@@ -5,8 +5,10 @@ package nonk8sapi
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -18,9 +20,19 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-const (
-	secondsToFinishOnShutdown = 5
-)
+const secondsToFinishOnShutdown = 5
+
+var errFailedToLoadCertificate = errors.New("failed to load certificate/key")
+
+type NonK8sAPIServerConfig struct {
+	ClusterAPIURL             string
+	ClusterAPICABundlePath    string
+	AuthorizationURL          string
+	AuthorizationCABundlePath string
+	ServerCertificatePath     string
+	ServerKeyPath             string
+	ServerBasePath            string
+}
 
 // nonK8sApiServer defines the non-k8s-api-server
 type nonK8sApiServer struct {
@@ -30,24 +42,62 @@ type nonK8sApiServer struct {
 	svr             *http.Server
 }
 
+func readCertificates(nonK8sAPIServerConfig *NonK8sAPIServerConfig) ([]byte, []byte, tls.Certificate, error) {
+	var (
+		clusterAPICABundle    []byte
+		authorizationCABundle []byte
+		certificate           tls.Certificate
+	)
+
+	if nonK8sAPIServerConfig.ClusterAPICABundlePath != "" {
+		clusterAPICABundle, err := ioutil.ReadFile(nonK8sAPIServerConfig.ClusterAPICABundlePath)
+		if err != nil {
+			return clusterAPICABundle, authorizationCABundle, certificate,
+				fmt.Errorf("%w: %s", errFailedToLoadCertificate, nonK8sAPIServerConfig.ClusterAPICABundlePath)
+		}
+	}
+
+	if nonK8sAPIServerConfig.AuthorizationCABundlePath != "" {
+		authorizationCABundle, err := ioutil.ReadFile(nonK8sAPIServerConfig.AuthorizationCABundlePath)
+		if err != nil {
+			return clusterAPICABundle, authorizationCABundle, certificate,
+				fmt.Errorf("%w: %s", errFailedToLoadCertificate, nonK8sAPIServerConfig.AuthorizationCABundlePath)
+		}
+	}
+
+	certificate, err := tls.LoadX509KeyPair(nonK8sAPIServerConfig.ServerCertificatePath, nonK8sAPIServerConfig.ServerKeyPath)
+	if err != nil {
+		return clusterAPICABundle, authorizationCABundle, certificate,
+			fmt.Errorf("%w: %s/%s", errFailedToLoadCertificate, nonK8sAPIServerConfig.ServerCertificatePath, nonK8sAPIServerConfig.ServerKeyPath)
+	}
+
+	return clusterAPICABundle, authorizationCABundle, certificate, nil
+}
+
 // AddNonK8sApiServer adds the non-k8s-api-server to the Manager.
-func AddNonK8sApiServer(mgr ctrl.Manager, clusterAPIURL, authorizationURL, basePath, certificateFile, keyFile string, clusterAPICABundle, authorizationCABundle []byte, database db.DB) error {
+func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) error {
+	// read the certificate of non-k8s-api server
+	clusterAPICABundle, authorizationCABundle, _, err := readCertificates(nonK8sAPIServerConfig)
+	if err != nil {
+		return fmt.Errorf("failed to read certificates: %w", err)
+	}
+
 	router := gin.Default()
-	router.Use(authentication.Authentication(clusterAPIURL, clusterAPICABundle))
+	router.Use(authentication.Authentication(nonK8sAPIServerConfig.ClusterAPIURL, clusterAPICABundle))
 
-	routerGroup := router.Group(basePath)
-	routerGroup.GET("/managedclusters", managedclusters.List(authorizationURL, authorizationCABundle, database.GetConn()))
+	routerGroup := router.Group(nonK8sAPIServerConfig.ServerBasePath)
+	routerGroup.GET("/managedclusters", managedclusters.List(nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
 
-	routerGroup.PATCH("/managedclusters/:cluster", managedclusters.Patch(authorizationURL, authorizationCABundle, database.GetConn()))
+	routerGroup.PATCH("/managedclusters/:cluster", managedclusters.Patch(nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
 
-	err := mgr.Add(&nonK8sApiServer{
+	err = mgr.Add(&nonK8sApiServer{
 		log: ctrl.Log.WithName("non-k8s-api-server"),
 		svr: &http.Server{
 			Addr:    ":8080",
 			Handler: router,
 		},
-		certificateFile: certificateFile,
-		keyFile:         keyFile,
+		certificateFile: nonK8sAPIServerConfig.ServerCertificatePath,
+		keyFile:         nonK8sAPIServerConfig.ServerKeyPath,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to add non k8s api server to the manager: %w", err)

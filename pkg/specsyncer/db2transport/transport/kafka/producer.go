@@ -2,10 +2,7 @@ package kafka
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
-	"strconv"
 	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -17,32 +14,28 @@ import (
 )
 
 const (
-	envVarKafkaProducerID       = "KAFKA_PRODUCER_ID"
-	envVarKafkaBootstrapServers = "KAFKA_BOOTSTRAP_SERVERS"
-	envVarKafkaTopic            = "KAFKA_PRODUCER_TOPIC"
-	envVarMessageSizeLimit      = "KAFKA_MESSAGE_SIZE_LIMIT_KB"
-
-	maxMessageSizeLimit = 987 // to make sure that the message size is below 1 MB.
+	MaxMessageSizeLimit = 987 // to make sure that the message size is below 1 MB.
 	partition           = 0
 	kiloBytesToBytes    = 1000
 )
 
-var (
-	errEnvVarNotFound     = errors.New("environment variable not found")
-	errEnvVarIllegalValue = errors.New("environment variable illegal value")
-)
+type KafkaProducerConfig struct {
+	ProducerID     string
+	ProducerTopic  string
+	MsgSizeLimitKB int
+}
 
 // NewProducer returns a new instance of Producer object.
-func NewProducer(compressor compressor.Compressor, log logr.Logger) (*Producer, error) {
-	deliveryChan := make(chan kafka.Event)
-
-	kafkaConfigMap, topic, messageSizeLimit, err := readEnvVars()
-	if err != nil {
-		close(deliveryChan)
-		return nil, fmt.Errorf("failed to create producer: %w", err)
+func NewProducer(compressor compressor.Compressor, bootstrapServer string, producerConfig *KafkaProducerConfig, log logr.Logger) (*Producer, error) {
+	kafkaConfigMap := &kafka.ConfigMap{
+		"bootstrap.servers": bootstrapServer,
+		"client.id":         producerConfig.ProducerID,
+		"acks":              "1",
+		"retries":           "0",
 	}
 
-	kafkaProducer, err := kafkaproducer.NewKafkaProducer(kafkaConfigMap, messageSizeLimit*kiloBytesToBytes,
+	deliveryChan := make(chan kafka.Event)
+	kafkaProducer, err := kafkaproducer.NewKafkaProducer(kafkaConfigMap, producerConfig.MsgSizeLimitKB*kiloBytesToBytes,
 		deliveryChan)
 	if err != nil {
 		close(deliveryChan)
@@ -52,52 +45,11 @@ func NewProducer(compressor compressor.Compressor, log logr.Logger) (*Producer, 
 	return &Producer{
 		log:           log,
 		kafkaProducer: kafkaProducer,
-		topic:         topic,
+		topic:         producerConfig.ProducerTopic,
 		compressor:    compressor,
 		deliveryChan:  deliveryChan,
 		stopChan:      make(chan struct{}),
 	}, nil
-}
-
-func readEnvVars() (*kafka.ConfigMap, string, int, error) {
-	producerID, found := os.LookupEnv(envVarKafkaProducerID)
-	if !found {
-		return nil, "", 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarKafkaProducerID)
-	}
-
-	bootstrapServers, found := os.LookupEnv(envVarKafkaBootstrapServers)
-	if !found {
-		return nil, "", 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarKafkaBootstrapServers)
-	}
-
-	topic, found := os.LookupEnv(envVarKafkaTopic)
-	if !found {
-		return nil, "", 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarKafkaTopic)
-	}
-
-	messageSizeLimitString, found := os.LookupEnv(envVarMessageSizeLimit)
-	if !found {
-		return nil, "", 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarMessageSizeLimit)
-	}
-
-	messageSizeLimit, err := strconv.Atoi(messageSizeLimitString)
-	if err != nil || messageSizeLimit <= 0 {
-		return nil, "", 0, fmt.Errorf("%w: %s", errEnvVarIllegalValue, envVarMessageSizeLimit)
-	}
-
-	if messageSizeLimit > maxMessageSizeLimit {
-		return nil, "", 0, fmt.Errorf("%w - size must not exceed %d : %s", errEnvVarIllegalValue,
-			maxMessageSizeLimit, envVarMessageSizeLimit)
-	}
-
-	kafkaConfigMap := &kafka.ConfigMap{
-		"bootstrap.servers": bootstrapServers,
-		"client.id":         producerID,
-		"acks":              "1",
-		"retries":           "0",
-	}
-
-	return kafkaConfigMap, topic, messageSizeLimit, nil
 }
 
 // Producer abstracts hub-of-hubs-kafka-transport kafka-producer's generic usage.
