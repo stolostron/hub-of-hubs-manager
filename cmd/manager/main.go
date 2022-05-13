@@ -4,11 +4,9 @@
 package main
 
 import (
-	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"runtime"
 	"strings"
@@ -48,55 +46,111 @@ const (
 	leaderElectionLockName             = "hub-of-hubs-manager-lock"
 )
 
-const (
-	envVarManagerNamespace            = "POD_NAMESPACE"
-	envVarWatchNamespace              = "WATCH_NAMESPACE"
-	envVarSpecSyncInterval            = "SPEC_SYNC_INTERVAL"
-	envVarStatusSyncInterval          = "STATUS_SYNC_INTERVAL"
-	envVarLabelsTrimmingInterval      = "DELETED_LABELS_TRIMMING_INTERVAL"
-	envVarProcessDatabaseURL          = "PROCESS_DATABASE_URL"
-	envVarTransportBridgeDatabaseURL  = "TRANSPORT_BRIDGE_DATABASE_URL"
-	envVarTransportType               = "TRANSPORT_TYPE"
-	envVarTransportMsgCompressionType = "TRANSPORT_MESSAGE_COMPRESSION_TYPE"
-	envVarClusterAPIURL               = "CLUSTER_API_URL"
-	envVarClusterAPICABundlePath      = "CLUSTER_API_CA_BUNDLE_PATH"
-	envVarAuthorizationURL            = "AUTHORIZATION_URL"
-	envVarAuthorizationCABundlePath   = "AUTHORIZATION_CA_BUNDLE_PATH"
-	envVarServerCertificatePath       = "SERVER_CERTIFICATE_PATH"
-	envVarServerKeyPath               = "SERVER_KEY_PATH"
-	envVarServerBasePath              = "SERVER_BASE_PATH"
-)
-
 var (
-	errEnvVarNotFound          = errors.New("environment variable not found")
-	errEnvVarIllegalValue      = errors.New("environment variable illegal value")
-	errFailedToLoadCertificate = errors.New("failed to load certificate/key")
+	errFlagParameterEmpty        = errors.New("flag parameter empty")
+	errFlagParameterIllegalValue = errors.New("flag parameter illegal value")
 )
 
 type hohManagerConfig struct {
-	managerNamespace              string
-	watchNamespace                string
+	managerNamespace      string
+	watchNamespace        string
+	syncerConfig          *syncerConfig
+	databaseConfig        *databaseConfig
+	transportCommonConfig *transportCommonConfig
+	kafkaConfig           *kafkaConfig
+	syncServiceConfig     *statussyncservice.SyncServiceConfig
+	statisticsConfig      *statistics.StatisticsConfig
+	nonK8sAPIServerConfig *nonk8sapi.NonK8sAPIServerConfig
+}
+
+type syncerConfig struct {
 	specSyncInterval              time.Duration
 	statusSyncInterval            time.Duration
 	deletedLabelsTrimmingInterval time.Duration
-	processDatabaseURL            string
-	transportBridgeDatabaseURL    string
-	transportType                 string
-	transportMsgCompressionType   string
-	clusterAPIURL                 string
-	clusterAPICABundlePath        string
-	authorizationURL              string
-	authorizationCABundlePath     string
-	serverKeyPath                 string
-	serverCertificatePath         string
-	serverBasePath                string
 }
 
-func initializeLogger() logr.Logger {
+type databaseConfig struct {
+	processDatabaseURL         string
+	transportBridgeDatabaseURL string
+}
+
+type transportCommonConfig struct {
+	transportType      string
+	msgCompressionType string
+	committerInterval  time.Duration
+}
+
+type kafkaConfig struct {
+	bootstrapServer string
+	producerConfig  *speckafka.KafkaProducerConfig
+	consumerConfig  *statuskafka.KafkaConsumerConfig
+}
+
+func parseFlags() (*hohManagerConfig, error) {
+	managerConfig := &hohManagerConfig{
+		syncerConfig:          &syncerConfig{},
+		databaseConfig:        &databaseConfig{},
+		transportCommonConfig: &transportCommonConfig{},
+		kafkaConfig: &kafkaConfig{
+			producerConfig: &speckafka.KafkaProducerConfig{},
+			consumerConfig: &statuskafka.KafkaConsumerConfig{},
+		},
+		syncServiceConfig:     &statussyncservice.SyncServiceConfig{},
+		statisticsConfig:      &statistics.StatisticsConfig{},
+		nonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
+	}
+
+	pflag.StringVar(&managerConfig.managerNamespace, "manager-namespace", "open-cluster-management", "The manager running namespace, also used as leader election namespace.")
+	pflag.StringVar(&managerConfig.watchNamespace, "watch-namespace", "", "The watching namespace of the controllers, multiple namespace must be splited by comma.")
+	pflag.DurationVar(&managerConfig.syncerConfig.specSyncInterval, "spec-sync-interval", 5*time.Second, "The synchronization interval of resources in spec.")
+	pflag.DurationVar(&managerConfig.syncerConfig.statusSyncInterval, "status-sync-interval", 5*time.Second, "The synchronization interval of resources in status.")
+	pflag.DurationVar(&managerConfig.syncerConfig.deletedLabelsTrimmingInterval, "deleted-labels-trimming-interval", 5*time.Second, "The trimming interval of deleted labels.")
+	pflag.StringVar(&managerConfig.databaseConfig.processDatabaseURL, "process-database-url", "", "The URL of database server for the process user.")
+	pflag.StringVar(&managerConfig.databaseConfig.transportBridgeDatabaseURL, "transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
+	pflag.StringVar(&managerConfig.transportCommonConfig.transportType, "transport-type", "kafka", "The transport type, 'kafka' or 'sync-service'.")
+	pflag.StringVar(&managerConfig.transportCommonConfig.msgCompressionType, "transport-message-compression-type", "gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
+	pflag.DurationVar(&managerConfig.transportCommonConfig.committerInterval, "transport-committer-interval", 40*time.Second, "The committer interval for transport layer.")
+	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bookstrap-server", "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
+	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerID, "kakfa-producer-id", "hub-of-hubs", "ID for the kafka producer.")
+	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerTopic, "kakfa-producer-topic", "spec", "Topic for the kafka producer.")
+	pflag.IntVar(&managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
+	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerID, "kakfa-consumer-id", "hub-of-hubs", "ID for the kafka consumer.")
+	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerTopic, "kakfa-consumer-topic", "status", "Topic for the kafka consumer.")
+	pflag.StringVar(&managerConfig.syncServiceConfig.Protocol, "sync-service-protocol", "http", "The protocol for sync-service communication.")
+	pflag.StringVar(&managerConfig.syncServiceConfig.CSSHost, "cloud-sync-service-host", "sync-service-css.sync-service.svc.cluster.local", "The host for Cloud Sync Service.")
+	pflag.IntVar(&managerConfig.syncServiceConfig.CSSPort, "cloud-sync-service-port", 9689, "The port for Cloud Sync Service.")
+	pflag.IntVar(&managerConfig.syncServiceConfig.PollingInterval, "cloud-sync-service-polling-interval", 5, "The polling interval in second for Cloud Sync Service.")
+	pflag.DurationVar(&managerConfig.statisticsConfig.LogInterval, "statistics-log-interval", 0*time.Second, "The log interval for statistics.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url", "https://kubernetes.default.svc:443", "The cluster API URL for nonK8s API server.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPICABundlePath, "cluster-api-cabundle-path", "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "The CA bundle path for cluster API.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.AuthorizationURL, "authorization-url", "https://hub-of-hubs-rbac.open-cluster-management.svc:8181", "The authorization URL for nonK8s API server.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.AuthorizationCABundlePath, "authorization-cabundle-path", "/hub-of-hubs-rbac-ca/service-ca.crt", "The CA bundle path for authorization server.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerCertificatePath, "server-certificate-path", "/certs/tls.crt", "The certificate path for nonK8s API server.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerKeyPath, "server-key-path", "/certs/tls.key", "The private key path for nonK8s API server.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerBasePath, "server-base-path", "/multicloud/hub-of-hubs-nonk8s-api", "The base path for nonK8s API server.")
+
+	// add flags for logger
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
+	if managerConfig.databaseConfig.processDatabaseURL == "" {
+		return nil, fmt.Errorf("database url for process user: %w", errFlagParameterEmpty)
+	}
+
+	if managerConfig.databaseConfig.transportBridgeDatabaseURL == "" {
+		return nil, fmt.Errorf("database url for transport-bridge user: %w", errFlagParameterEmpty)
+	}
+
+	if managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB > speckafka.MaxMessageSizeLimit {
+		return nil, fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
+			speckafka.MaxMessageSizeLimit, "kafka-message-size-limit")
+	}
+
+	return managerConfig, nil
+}
+
+func initializeLogger() logr.Logger {
 	ctrl.SetLogger(zap.Logger())
 	log := ctrl.Log.WithName("cmd")
 
@@ -106,157 +160,6 @@ func initializeLogger() logr.Logger {
 func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-}
-
-func createManagerConfigFromEnvVars() (*hohManagerConfig, error) {
-	managerNamespace, found := os.LookupEnv(envVarManagerNamespace)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarManagerNamespace)
-	}
-
-	watchNamespace, found := os.LookupEnv(envVarWatchNamespace)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarWatchNamespace)
-	}
-
-	specSyncIntervalString, found := os.LookupEnv(envVarSpecSyncInterval)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSpecSyncInterval)
-	}
-
-	specSyncInterval, err := time.ParseDuration(specSyncIntervalString)
-	if err != nil {
-		return nil, fmt.Errorf("the environment var %s is not a valid duration - %w",
-			specSyncInterval, err)
-	}
-
-	statusSyncIntervalString, found := os.LookupEnv(envVarStatusSyncInterval)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarStatusSyncInterval)
-	}
-
-	statusSyncInterval, err := time.ParseDuration(statusSyncIntervalString)
-	if err != nil {
-		return nil, fmt.Errorf("the environment var %s is not a valid duration - %w",
-			statusSyncInterval, err)
-	}
-
-	deletedLabelsTrimmingIntervalString, found := os.LookupEnv(envVarLabelsTrimmingInterval)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarLabelsTrimmingInterval)
-	}
-
-	deletedLabelsTrimmingInterval, err := time.ParseDuration(deletedLabelsTrimmingIntervalString)
-	if err != nil {
-		return nil, fmt.Errorf("the environment var %s is not a valid duration - %w",
-			deletedLabelsTrimmingInterval, err)
-	}
-
-	processDatabaseURL, found := os.LookupEnv(envVarProcessDatabaseURL)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarProcessDatabaseURL)
-	}
-
-	transportBridgeDatabaseURL, found := os.LookupEnv(envVarTransportBridgeDatabaseURL)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportBridgeDatabaseURL)
-	}
-
-	transportType, found := os.LookupEnv(envVarTransportType)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportType)
-	}
-
-	transportMsgCompressionType, found := os.LookupEnv(envVarTransportMsgCompressionType)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportMsgCompressionType)
-	}
-
-	clusterAPIURL, found := os.LookupEnv(envVarClusterAPIURL)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarClusterAPIURL)
-	}
-
-	clusterAPICABundlePath, found := os.LookupEnv(envVarClusterAPICABundlePath)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarClusterAPICABundlePath)
-	}
-
-	authorizationURL, found := os.LookupEnv(envVarAuthorizationURL)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarAuthorizationURL)
-	}
-
-	authorizationCABundlePath, found := os.LookupEnv(envVarAuthorizationCABundlePath)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarAuthorizationCABundlePath)
-	}
-
-	serverCertificatePath, found := os.LookupEnv(envVarServerCertificatePath)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarServerCertificatePath)
-	}
-
-	serverKeyPath, found := os.LookupEnv(envVarServerKeyPath)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarServerKeyPath)
-	}
-
-	serverBasePath, found := os.LookupEnv(envVarServerBasePath)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarServerBasePath)
-	}
-
-	return &hohManagerConfig{
-		managerNamespace:              managerNamespace,
-		watchNamespace:                watchNamespace,
-		specSyncInterval:              specSyncInterval,
-		statusSyncInterval:            statusSyncInterval,
-		deletedLabelsTrimmingInterval: deletedLabelsTrimmingInterval,
-		processDatabaseURL:            processDatabaseURL,
-		transportBridgeDatabaseURL:    transportBridgeDatabaseURL,
-		transportType:                 transportType,
-		transportMsgCompressionType:   transportMsgCompressionType,
-		clusterAPIURL:                 clusterAPIURL,
-		clusterAPICABundlePath:        clusterAPICABundlePath,
-		authorizationURL:              authorizationURL,
-		authorizationCABundlePath:     authorizationCABundlePath,
-		serverCertificatePath:         serverCertificatePath,
-		serverKeyPath:                 serverKeyPath,
-		serverBasePath:                serverBasePath,
-	}, nil
-}
-
-func readCertificates(clusterAPICABundlePath, authorizationCABundlePath, certificatePath, keyPath string) ([]byte, []byte, tls.Certificate, error) {
-	var (
-		clusterAPICABundle    []byte
-		authorizationCABundle []byte
-		certificate           tls.Certificate
-	)
-
-	if clusterAPICABundlePath != "" {
-		clusterAPICABundle, err := ioutil.ReadFile(clusterAPICABundlePath)
-		if err != nil {
-			return clusterAPICABundle, authorizationCABundle, certificate,
-				fmt.Errorf("%w: %s", errFailedToLoadCertificate, clusterAPICABundlePath)
-		}
-	}
-
-	if authorizationCABundlePath != "" {
-		authorizationCABundle, err := ioutil.ReadFile(authorizationCABundlePath)
-		if err != nil {
-			return clusterAPICABundle, authorizationCABundle, certificate,
-				fmt.Errorf("%w: %s", errFailedToLoadCertificate, authorizationCABundle)
-		}
-	}
-
-	certificate, err := tls.LoadX509KeyPair(certificatePath, keyPath)
-	if err != nil {
-		return clusterAPICABundle, authorizationCABundle, certificate,
-			fmt.Errorf("%w: %s/%s", errFailedToLoadCertificate, certificatePath, keyPath)
-	}
-
-	return clusterAPICABundle, authorizationCABundle, certificate, nil
 }
 
 // function to determine whether the transport component requires initial-dependencies between bundles to be checked
@@ -280,55 +183,55 @@ func requireInitialDependencyChecks(transportType string) bool {
 }
 
 // function to choose spec transport type based on env var.
-func getSpecTransport(transportType string, transportMsgCompressionType string) (spectransport.Transport, error) {
-	msgCompressor, err := compressor.NewCompressor(compressor.CompressionType(transportMsgCompressionType))
+func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer string, kafkaProducerConfig *speckafka.KafkaProducerConfig, syncServiceConfig *statussyncservice.SyncServiceConfig) (spectransport.Transport, error) {
+	msgCompressor, err := compressor.NewCompressor(compressor.CompressionType(transportCommonConfig.msgCompressionType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create message-compressor: %w", err)
 	}
 
-	switch transportType {
+	switch transportCommonConfig.transportType {
 	case kafkaTransportTypeName:
-		kafkaProducer, err := speckafka.NewProducer(msgCompressor, ctrl.Log.WithName("kafka"))
+		kafkaProducer, err := speckafka.NewProducer(msgCompressor, kafkaBootstrapServer, kafkaProducerConfig, ctrl.Log.WithName("kafka-producer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
 		}
 
 		return kafkaProducer, nil
 	case syncServiceTransportTypeName:
-		syncService, err := specsyncservice.NewSyncService(msgCompressor, ctrl.Log.WithName("sync-service"))
+		syncService, err := specsyncservice.NewSyncService(msgCompressor, syncServiceConfig, ctrl.Log.WithName("sync-service-for-spec"))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create sync-service: %w", err)
+			return nil, fmt.Errorf("failed to create sync-service for spec: %w", err)
 		}
 
 		return syncService, nil
 	default:
-		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errEnvVarIllegalValue, envVarTransportType,
-			transportType)
+		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errFlagParameterIllegalValue, "transport-type",
+			transportCommonConfig.transportType)
 	}
 }
 
 // function to choose status transport type based on env var.
-func getStatusTransport(transportType string, conflationMgr *conflator.ConflationManager,
+func getStatusTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer string, kafkaConsumerConfig *statuskafka.KafkaConsumerConfig, syncServiceConfig *statussyncservice.SyncServiceConfig, conflationMgr *conflator.ConflationManager,
 	statistics *statistics.Statistics,
 ) (statustransport.Transport, error) {
-	switch transportType {
+	switch transportCommonConfig.transportType {
 	case kafkaTransportTypeName:
-		kafkaConsumer, err := statuskafka.NewConsumer(ctrl.Log.WithName("kafka"), conflationMgr, statistics)
+		kafkaConsumer, err := statuskafka.NewConsumer(transportCommonConfig.committerInterval, kafkaBootstrapServer, kafkaConsumerConfig, conflationMgr, statistics, ctrl.Log.WithName("kafka-consumer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
 
 		return kafkaConsumer, nil
 	case syncServiceTransportTypeName:
-		syncService, err := statussyncservice.NewSyncService(ctrl.Log.WithName("sync-service"), conflationMgr, statistics)
+		syncService, err := statussyncservice.NewSyncService(transportCommonConfig.committerInterval, syncServiceConfig, conflationMgr, statistics, ctrl.Log.WithName("sync-service-for-status"))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create sync-service: %w", err)
+			return nil, fmt.Errorf("failed to create sync-service for status: %w", err)
 		}
 
 		return syncService, nil
 	default:
-		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errEnvVarIllegalValue, envVarTransportType,
-			transportType)
+		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errFlagParameterIllegalValue, "transport-type",
+			transportCommonConfig.transportType)
 	}
 }
 
@@ -362,14 +265,7 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL, transport
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	// read the certificate of non-k8s-api server
-	clusterAPICABundle, authorizationCABundle, _, err := readCertificates(managerConfig.clusterAPICABundlePath, managerConfig.authorizationCABundlePath, managerConfig.serverCertificatePath, managerConfig.serverKeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read certificates: %w", err)
-	}
-
-	if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.clusterAPIURL, managerConfig.authorizationURL, managerConfig.serverBasePath,
-		managerConfig.serverCertificatePath, managerConfig.serverKeyPath, clusterAPICABundle, authorizationCABundle, processPostgreSQL); err != nil {
+	if err := nonk8sapi.AddNonK8sApiServer(mgr, processPostgreSQL, managerConfig.nonK8sAPIServerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 	}
 
@@ -377,15 +273,15 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL, transport
 		return nil, fmt.Errorf("failed to add spec-to-db controllers: %w", err)
 	}
 
-	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, specTransportObj, managerConfig.specSyncInterval); err != nil {
+	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, specTransportObj, managerConfig.syncerConfig.specSyncInterval); err != nil {
 		return nil, fmt.Errorf("failed to add db-to-transport syncers: %w", err)
 	}
 
-	if err := specsyncer.AddStatusDBWatchers(mgr, transportBridgePostgreSQL, transportBridgePostgreSQL, managerConfig.deletedLabelsTrimmingInterval); err != nil {
+	if err := specsyncer.AddStatusDBWatchers(mgr, transportBridgePostgreSQL, transportBridgePostgreSQL, managerConfig.syncerConfig.deletedLabelsTrimmingInterval); err != nil {
 		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
 	}
 
-	if err := db2status.AddDBSyncers(mgr, processPostgreSQL, managerConfig.statusSyncInterval); err != nil {
+	if err := db2status.AddDBSyncers(mgr, processPostgreSQL, managerConfig.syncerConfig.statusSyncInterval); err != nil {
 		return nil, fmt.Errorf("failed to add status db syncers: %w", err)
 	}
 
@@ -400,23 +296,22 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL, transport
 func doMain() int {
 	log := initializeLogger()
 	printVersion(log)
-
-	// create hoh manager configuration from environment variables
-	managerConfig, err := createManagerConfigFromEnvVars()
+	// create hoh manager configuration from command parameters
+	managerConfig, err := parseFlags()
 	if err != nil {
-		log.Error(err, "failed to create manager config from environment variables")
+		log.Error(err, "flags parse error")
 		return 1
 	}
 
 	// create statistics
-	stats, err := statistics.NewStatistics(ctrl.Log.WithName("statistics"))
+	stats, err := statistics.NewStatistics(ctrl.Log.WithName("statistics"), managerConfig.statisticsConfig)
 	if err != nil {
 		log.Error(err, "initialization error", "failed to initialize", "statistics")
 		return 1
 	}
 
 	// db layer initialization for process user
-	processPostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.processDatabaseURL)
+	processPostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.databaseConfig.processDatabaseURL)
 	if err != nil {
 		log.Error(err, "initialization error", "failed to initialize", "process PostgreSQL")
 		return 1
@@ -424,7 +319,7 @@ func doMain() int {
 	defer processPostgreSQL.Stop()
 
 	// db layer initialization for transport-bridge user
-	transportBridgePostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.transportBridgeDatabaseURL)
+	transportBridgePostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.databaseConfig.transportBridgeDatabaseURL)
 	if err != nil {
 		log.Error(err, "initialization error", "failed to initialize", "transport-bridge PostgreSQL")
 		return 1
@@ -432,7 +327,7 @@ func doMain() int {
 	defer transportBridgePostgreSQL.Stop()
 
 	// db layer initialization - worker pool + connection pool
-	dbWorkerPool, err := workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"), managerConfig.transportBridgeDatabaseURL, stats)
+	dbWorkerPool, err := workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"), managerConfig.databaseConfig.transportBridgeDatabaseURL, stats)
 	if err != nil {
 		log.Error(err, "initialization error", "failed to initialize", "DBWorkerPool")
 		return 1
@@ -446,12 +341,12 @@ func doMain() int {
 
 	// conflationReadyQueue is shared between conflation manager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
-	requireInitialDependencyChecks := requireInitialDependencyChecks(managerConfig.transportType)
+	requireInitialDependencyChecks := requireInitialDependencyChecks(managerConfig.transportCommonConfig.transportType)
 	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
 		requireInitialDependencyChecks, stats) // manage all Conflation Units
 
 	// status transport layer initialization
-	statusTransportObj, err := getStatusTransport(managerConfig.transportType, conflationManager, stats)
+	statusTransportObj, err := getStatusTransport(managerConfig.transportCommonConfig, managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.consumerConfig, managerConfig.syncServiceConfig, conflationManager, stats)
 	if err != nil {
 		log.Error(err, "initialization error", "failed to initialize", "status transport")
 		return 1
@@ -461,7 +356,7 @@ func doMain() int {
 	defer statusTransportObj.Stop()
 
 	// spec transport layer initialization
-	specTransportObj, err := getSpecTransport(managerConfig.transportType, managerConfig.transportMsgCompressionType)
+	specTransportObj, err := getSpecTransport(managerConfig.transportCommonConfig, managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.producerConfig, managerConfig.syncServiceConfig)
 	if err != nil {
 		log.Error(err, "initialization error", "failed to initialize", "spec transport")
 		return 1

@@ -6,10 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/open-horizon/edge-sync-service-client/client"
@@ -21,39 +20,36 @@ import (
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
 )
 
+type SyncServiceConfig struct {
+	Protocol        string
+	CSSHost         string
+	CSSPort         int // int to uint16 and keep align with https://pkg.go.dev/github.com/open-horizon/edge-sync-service-client/client#NewSyncServiceClient
+	PollingInterval int // keep align with https://pkg.go.dev/github.com/open-horizon/edge-sync-service-client/client#SyncServiceClient.StartPollingForUpdates
+}
+
 const (
-	envVarSyncServiceProtocol        = "SYNC_SERVICE_PROTOCOL"
-	envVarSyncServiceHost            = "SYNC_SERVICE_HOST"
-	envVarSyncServicePort            = "SYNC_SERVICE_PORT"
-	envVarSyncServicePollingInterval = "SYNC_SERVICE_POLLING_INTERVAL"
-	msgIDHeaderTokensLength          = 2
-	compressionHeaderTokensLength    = 2
-	defaultCompressionType           = compressor.NoOp
+	msgIDHeaderTokensLength       = 2
+	compressionHeaderTokensLength = 2
+	defaultCompressionType        = compressor.NoOp
 )
 
 var (
-	errEnvVarNotFound         = errors.New("environment variable not found")
 	errSyncServiceReadFailed  = errors.New("sync service error")
 	errMessageIDWrongFormat   = errors.New("message ID format is bad")
 	errMissingCompressionType = errors.New("compression type is missing from message description")
 )
 
 // NewSyncService creates a new instance of SyncService.
-func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationManager,
-	statistics *statistics.Statistics,
+func NewSyncService(committerInterval time.Duration, syncServiceConfig *SyncServiceConfig, conflationManager *conflator.ConflationManager, statistics *statistics.Statistics,
+	log logr.Logger,
 ) (*SyncService, error) {
-	serverProtocol, host, port, pollingInterval, err := readEnvVars()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
-	}
-
-	syncServiceClient := client.NewSyncServiceClient(serverProtocol, host, port)
+	syncServiceClient := client.NewSyncServiceClient(syncServiceConfig.Protocol, syncServiceConfig.CSSHost, uint16(syncServiceConfig.CSSPort))
 
 	syncServiceClient.SetOrgID("myorg")
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	// create committer
-	committer, err := newCommitter(log, syncServiceClient, conflationManager.GetBundlesMetadata)
+	committer, err := newCommitter(committerInterval, syncServiceClient, conflationManager.GetBundlesMetadata, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
 	}
@@ -67,48 +63,12 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 		compressorsMap:         make(map[compressor.CompressionType]compressor.Compressor),
 		conflationManager:      conflationManager,
 		statistics:             statistics,
-		pollingInterval:        pollingInterval,
+		pollingInterval:        syncServiceConfig.PollingInterval,
 		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
 		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
 		ctx:                    ctx,
 		cancelFunc:             cancelFunc,
 	}, nil
-}
-
-func readEnvVars() (string, string, uint16, int, error) {
-	protocol, found := os.LookupEnv(envVarSyncServiceProtocol)
-	if !found {
-		return "", "", 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServiceProtocol)
-	}
-
-	host, found := os.LookupEnv(envVarSyncServiceHost)
-	if !found {
-		return "", "", 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServiceHost)
-	}
-
-	portString, found := os.LookupEnv(envVarSyncServicePort)
-	if !found {
-		return "", "", 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServicePort)
-	}
-
-	port, err := strconv.Atoi(portString)
-	if err != nil {
-		return "", "", 0, 0, fmt.Errorf("the environment var %s is not valid port - %w", envVarSyncServicePort,
-			err)
-	}
-
-	pollingIntervalString, found := os.LookupEnv(envVarSyncServicePollingInterval)
-	if !found {
-		return "", "", 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServicePollingInterval)
-	}
-
-	pollingInterval, err := strconv.Atoi(pollingIntervalString)
-	if err != nil {
-		return "", "", 0, 0, fmt.Errorf("the environment var %s is not valid port - %w",
-			envVarSyncServicePollingInterval, err)
-	}
-
-	return protocol, host, uint16(port), pollingInterval, nil
 }
 
 // SyncService abstracts Sync Service client.

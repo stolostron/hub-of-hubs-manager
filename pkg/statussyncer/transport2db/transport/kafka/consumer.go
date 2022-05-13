@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
@@ -20,44 +20,45 @@ import (
 )
 
 const (
-	envVarKafkaConsumerID       = "KAFKA_CONSUMER_ID"
-	envVarKafkaBootstrapServers = "KAFKA_BOOTSTRAP_SERVERS"
-	envVarKafkaTopic            = "KAFKA_CONSUMER_TOPIC"
-	msgIDTokensLength           = 2
-	defaultCompressionType      = compressor.NoOp
+	msgIDTokensLength      = 2
+	defaultCompressionType = compressor.NoOp
 )
 
-var (
-	errEnvVarNotFound       = errors.New("environment variable not found")
-	errMessageIDWrongFormat = errors.New("message ID format is bad")
-)
+var errMessageIDWrongFormat = errors.New("message ID format is bad")
+
+type KafkaConsumerConfig struct {
+	ConsumerID    string
+	ConsumerTopic string
+}
 
 // NewConsumer creates a new instance of Consumer.
-func NewConsumer(log logr.Logger, conflationManager *conflator.ConflationManager,
-	statistics *statistics.Statistics,
+func NewConsumer(committerInterval time.Duration, bootstrapServer string, consumerConfig *KafkaConsumerConfig, conflationManager *conflator.ConflationManager, statistics *statistics.Statistics,
+	log logr.Logger,
 ) (*Consumer, error) {
-	kafkaConfigMap, topic, err := readEnvVars()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create consumer: %w", err)
+	kafkaConfigMap := &kafka.ConfigMap{
+		"bootstrap.servers":  bootstrapServer,
+		"client.id":          consumerConfig.ConsumerID,
+		"group.id":           consumerConfig.ConsumerID,
+		"auto.offset.reset":  "earliest",
+		"enable.auto.commit": "false",
 	}
 
 	msgChan := make(chan *kafka.Message)
-
 	kafkaConsumer, err := kafkaconsumer.NewKafkaConsumer(kafkaConfigMap, msgChan, log)
 	if err != nil {
 		close(msgChan)
 		return nil, fmt.Errorf("failed to create consumer: %w", err)
 	}
 
-	if err := kafkaConsumer.Subscribe(topic); err != nil {
+	if err := kafkaConsumer.Subscribe(consumerConfig.ConsumerTopic); err != nil {
 		close(msgChan)
 		kafkaConsumer.Close()
 
-		return nil, fmt.Errorf("failed to subscribe to requested topic - %v: %w", topic, err)
+		return nil, fmt.Errorf("failed to subscribe to requested topic - %v: %w", consumerConfig.ConsumerTopic, err)
 	}
 
 	// create committer
-	committer, err := newCommitter(log, topic, kafkaConsumer, conflationManager.GetBundlesMetadata)
+	committer, err := newCommitter(committerInterval, consumerConfig.ConsumerTopic, kafkaConsumer, conflationManager.GetBundlesMetadata, log)
 	if err != nil {
 		close(msgChan)
 		kafkaConsumer.Close()
@@ -79,33 +80,6 @@ func NewConsumer(log logr.Logger, conflationManager *conflator.ConflationManager
 		ctx:                    ctx,
 		cancelFunc:             cancelFunc,
 	}, nil
-}
-
-func readEnvVars() (*kafka.ConfigMap, string, error) {
-	consumerID, found := os.LookupEnv(envVarKafkaConsumerID)
-	if !found {
-		return nil, "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarKafkaConsumerID)
-	}
-
-	bootstrapServers, found := os.LookupEnv(envVarKafkaBootstrapServers)
-	if !found {
-		return nil, "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarKafkaBootstrapServers)
-	}
-
-	topic, found := os.LookupEnv(envVarKafkaTopic)
-	if !found {
-		return nil, "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarKafkaTopic)
-	}
-
-	kafkaConfigMap := &kafka.ConfigMap{
-		"bootstrap.servers":  bootstrapServers,
-		"client.id":          consumerID,
-		"group.id":           consumerID,
-		"auto.offset.reset":  "earliest",
-		"enable.auto.commit": "false",
-	}
-
-	return kafkaConfigMap, topic, nil
 }
 
 // Consumer abstracts hub-of-hubs-kafka-transport kafka-consumer's generic usage.

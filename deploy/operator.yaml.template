@@ -19,7 +19,15 @@ spec:
           image: ${REGISTRY}/hub-of-hubs-manager:${IMAGE_TAG}
           imagePullPolicy: Always
           args:
-            - '--zap-devel=true'
+            - --zap-devel=true
+            - --manager-namespace=$(POD_NAMESPACE)
+            - --watch-namespace=$(WATCH_NAMESPACE)
+            - --process-database-url=$(PROCESS_DATABASE_URL)
+            - --transport-bridge-database-url=$(TRANSPORT_BRIDGE_DATABASE_URL)
+            - --authorization-cabundle-path=/hub-of-hubs-rbac-ca/service-ca.crt
+            - --cluster-api-cabundle-path=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+            - --server-certificate-path=/certs/tls.crt
+            - --server-key-path=/certs/tls.key
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -37,54 +45,6 @@ spec:
                 secretKeyRef:
                   name: hub-of-hubs-database-transport-bridge-secret
                   key: url
-            - name: TRANSPORT_TYPE
-              value: "${TRANSPORT_TYPE}"
-            - name: TRANSPORT_MESSAGE_COMPRESSION_TYPE
-              value: "gzip"
-            - name: KAFKA_PRODUCER_ID
-              value: "hub-of-hubs"
-            - name: KAFKA_CONSUMER_ID
-              value: "hub-of-hubs"
-            - name: KAFKA_PRODUCER_TOPIC
-              value: "spec"
-            - name: KAFKA_CONSUMER_TOPIC
-              value: "status"
-            - name: KAFKA_BOOTSTRAP_SERVERS
-              value: "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092"
-            - name: KAFKA_MESSAGE_SIZE_LIMIT_KB
-              value: "940"
-            - name: SYNC_SERVICE_PROTOCOL
-              value: "http"
-            - name: SYNC_SERVICE_HOST
-              value: "sync-service-css.sync-service.svc.cluster.local"
-            - name: SYNC_SERVICE_PORT
-              value: "9689"
-            - name: SYNC_SERVICE_POLLING_INTERVAL
-              value: "5"
-            - name: COMMITTER_INTERVAL
-              value: "40s"
-            - name: STATISTICS_LOG_INTERVAL_SECONDS
-              value: "0"
-            - name: SPEC_SYNC_INTERVAL
-              value: 5s
-            - name: STATUS_SYNC_INTERVAL
-              value: 5s
-            - name: DELETED_LABELS_TRIMMING_INTERVAL
-              value: 1h
-            - name: CLUSTER_API_URL
-              value: https://kubernetes.default.svc:443
-            - name: CLUSTER_API_CA_BUNDLE_PATH
-              value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-            - name: AUTHORIZATION_URL
-              value: https://hub-of-hubs-rbac.open-cluster-management.svc:8181
-            - name: AUTHORIZATION_CA_BUNDLE_PATH
-              value: /hub-of-hubs-rbac-ca/service-ca.crt
-            - name: SERVER_CERTIFICATE_PATH
-              value: /certs/tls.crt
-            - name: SERVER_KEY_PATH
-              value: /certs/tls.key
-            - name: SERVER_BASE_PATH
-              value: /multicloud/hub-of-hubs-nonk8s-api
           volumeMounts:
             - readOnly: true
               mountPath: /hub-of-hubs-rbac-ca

@@ -3,7 +3,6 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -12,22 +11,10 @@ import (
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
 )
 
-const envVarCommitterInterval = "COMMITTER_INTERVAL"
-
 // newCommitter returns a new instance of committer.
-func newCommitter(log logr.Logger, topic string, client *kafkaconsumer.KafkaConsumer,
-	getBundlesMetadataFunc transport.GetBundlesMetadataFunc,
+func newCommitter(committerInterval time.Duration, topic string, client *kafkaconsumer.KafkaConsumer,
+	getBundlesMetadataFunc transport.GetBundlesMetadataFunc, log logr.Logger,
 ) (*committer, error) {
-	committerIntervalString, found := os.LookupEnv(envVarCommitterInterval)
-	if !found {
-		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarCommitterInterval)
-	}
-
-	committerInterval, err := time.ParseDuration(committerIntervalString)
-	if err != nil {
-		return nil, fmt.Errorf("the environment var %s is not valid duration - %w", envVarCommitterInterval, err)
-	}
-
 	return &committer{
 		log:                    log,
 		topic:                  topic,
