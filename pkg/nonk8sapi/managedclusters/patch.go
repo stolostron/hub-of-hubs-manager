@@ -50,7 +50,11 @@ func Patch(authorizationURL string, authorizationCABundle []byte,
 
 		fmt.Fprintf(gin.DefaultWriter, "patch for cluster: %s\n", cluster)
 
-		if !isAuthorized(user, groups, authorizationURL, authorizationCABundle, dbConnectionPool, cluster) {
+		hubCluster := ginCtx.Query("hubCluster")
+
+		fmt.Fprintf(gin.DefaultWriter, "patch for hub cluster: %s\n", hubCluster)
+
+		if !isAuthorized(user, groups, authorizationURL, authorizationCABundle, dbConnectionPool, cluster, hubCluster) {
 			ginCtx.JSON(http.StatusForbidden, gin.H{"status": "the current user cannot patch the cluster"})
 		}
 
@@ -74,7 +78,7 @@ func Patch(authorizationURL string, authorizationCABundle []byte,
 		retryAttempts := optimisticConcurrencyRetryAttempts
 
 		for retryAttempts > 0 {
-			err = updateLabels(cluster, labelsToAdd, labelsToRemove, dbConnectionPool)
+			err = updateLabels(cluster, hubCluster, labelsToAdd, labelsToRemove, dbConnectionPool)
 			if err == nil {
 				break
 			}
@@ -89,7 +93,7 @@ func Patch(authorizationURL string, authorizationCABundle []byte,
 	}
 }
 
-func updateLabels(cluster string, labelsToAdd map[string]string, labelsToRemove map[string]struct{},
+func updateLabels(cluster, hubCluster string, labelsToAdd map[string]string, labelsToRemove map[string]struct{},
 	dbConnectionPool *pgxpool.Pool,
 ) error {
 	if len(labelsToAdd) == 0 && len(labelsToRemove) == 0 {
@@ -97,8 +101,8 @@ func updateLabels(cluster string, labelsToAdd map[string]string, labelsToRemove 
 	}
 
 	rows, err := dbConnectionPool.Query(context.TODO(),
-		"SELECT labels, deleted_label_keys, version from spec.managed_clusters_labels WHERE managed_cluster_name = $1",
-		cluster)
+		"SELECT labels, deleted_label_keys, version from spec.managed_clusters_labels WHERE managed_cluster_name = $1 AND leaf_hub_name = $2",
+		cluster, hubCluster)
 	if err != nil {
 		return fmt.Errorf("failed to read from managed_clusters_labels: %w", err)
 	}
@@ -106,9 +110,9 @@ func updateLabels(cluster string, labelsToAdd map[string]string, labelsToRemove 
 
 	if !rows.Next() { // insert the labels
 		_, err := dbConnectionPool.Exec(context.TODO(),
-			`INSERT INTO spec.managed_clusters_labels (managed_cluster_name, labels,
-			deleted_label_keys, version, updated_at) values($1, $2::jsonb, $3::jsonb, 0, now())`,
-			cluster, labelsToAdd, getKeys(labelsToRemove))
+			`INSERT INTO spec.managed_clusters_labels (leaf_hub_name, managed_cluster_name, labels,
+			deleted_label_keys, version, updated_at) values($1, $2, $3::jsonb, $4::jsonb, 0, now())`,
+			hubCluster, cluster, labelsToAdd, getKeys(labelsToRemove))
 		if err != nil {
 			return fmt.Errorf("failed to insert into the managed_clusters_labels table: %w", err)
 		}
@@ -127,7 +131,7 @@ func updateLabels(cluster string, labelsToAdd map[string]string, labelsToRemove 
 		return fmt.Errorf("failed to scan a row: %w", err)
 	}
 
-	err = updateRow(cluster, labelsToAdd, currentLabelsToAdd, labelsToRemove, getMap(currentLabelsToRemoveSlice),
+	err = updateRow(cluster, hubCluster, labelsToAdd, currentLabelsToAdd, labelsToRemove, getMap(currentLabelsToRemoveSlice),
 		version, dbConnectionPool)
 	if err != nil {
 		return fmt.Errorf("failed to update managed_clusters_labels table: %w", err)
@@ -141,7 +145,7 @@ func updateLabels(cluster string, labelsToAdd map[string]string, labelsToRemove 
 	return nil
 }
 
-func updateRow(cluster string, labelsToAdd map[string]string, currentLabelsToAdd map[string]string,
+func updateRow(cluster, hubCluster string, labelsToAdd map[string]string, currentLabelsToAdd map[string]string,
 	labelsToRemove map[string]struct{}, currentLabelsToRemove map[string]struct{},
 	version int64, dbConnectionPool *pgxpool.Pool,
 ) error {
@@ -174,8 +178,8 @@ func updateRow(cluster string, labelsToAdd map[string]string, currentLabelsToAdd
 		deleted_label_keys = $2::jsonb,
 		version = version + 1,
 		updated_at = now()
-		WHERE managed_cluster_name=$3 AND version=$4`,
-		newLabelsToAdd, getKeys(newLabelsToRemove), cluster, version)
+		WHERE managed_cluster_name=$3 AND leaf_hub_name=$4 AND version=$5`,
+		newLabelsToAdd, getKeys(newLabelsToRemove), cluster, hubCluster, version)
 	if err != nil {
 		return fmt.Errorf("failed to update a row: %w", err)
 	}
@@ -211,11 +215,11 @@ func getKeys(aMap map[string]struct{}) []string {
 }
 
 func isAuthorized(user string, groups []string, authorizationURL string, authorizationCABundle []byte,
-	dbConnectionPool *pgxpool.Pool, cluster string,
+	dbConnectionPool *pgxpool.Pool, cluster, hubCluster string,
 ) bool {
 	query := fmt.Sprintf(
-		"SELECT COUNT(payload) from status.managed_clusters WHERE payload -> 'metadata' ->> 'name' = '%s' AND %s",
-		cluster, filterByAuthorization(user, groups, authorizationURL, authorizationCABundle, gin.DefaultWriter))
+		"SELECT COUNT(payload) from status.managed_clusters WHERE payload -> 'metadata' ->> 'name' = '%s' AND 'leaf_hub_name' = '%s' AND %s",
+		cluster, hubCluster, filterByAuthorization(user, groups, authorizationURL, authorizationCABundle, gin.DefaultWriter))
 
 	var count int64
 

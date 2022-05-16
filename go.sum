@@ -2112,8 +2112,8 @@ github.com/stephens2424/writerset v1.0.2/go.mod h1:aS2JhsMn6eA7e82oNmW4rfsgAOp9C
 github.com/stoewer/go-strcase v1.2.0/go.mod h1:IBiWB2sKIp3wVVQ3Y035++gc+knqhUQag1KpM8ahLw8=
 github.com/stolostron/go-log-utils v0.1.0/go.mod h1:2Uc5mbuLvSFpoXFFEKRTEFOlR7nqGVMu9mbU+FIttTI=
 github.com/stolostron/go-template-utils/v2 v2.2.2/go.mod h1:z4d9KZkkW5jAHns3bafVTmab+eq/jVsoFRYWbH37Qu4=
-github.com/stolostron/hub-of-hubs-kafka-transport v0.3.2-0.20220216134627-cc88dc55ceac h1:Yab0K7CZI4eipcbMowxy9NG5JadY3F4Eg4ms3xXSD2M=
-github.com/stolostron/hub-of-hubs-kafka-transport v0.3.2-0.20220216134627-cc88dc55ceac/go.mod h1:ORmbTRxjnHnO+389b0DZsem6qNJcSvj1Lo2JGBMwma8=
+github.com/stolostron/hub-of-hubs-kafka-transport v0.4.0 h1:4/VeHt3Ifupd4p6NMBwuaIzYh14qW16IVKsb/DF/65k=
+github.com/stolostron/hub-of-hubs-kafka-transport v0.4.0/go.mod h1:ORmbTRxjnHnO+389b0DZsem6qNJcSvj1Lo2JGBMwma8=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v1.0.0/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
