@@ -26,12 +26,14 @@ import (
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/spec2db"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statistics"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/db2status"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/status"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db/workerpool"
 	statussyncer "github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/syncer"
 	statustransport "github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
 	statuskafka "github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport/kafka"
 	statussyncservice "github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport/syncservice"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -283,6 +285,10 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL, transport
 
 	if err := db2status.AddDBSyncers(mgr, processPostgreSQL, managerConfig.syncerConfig.statusSyncInterval); err != nil {
 		return nil, fmt.Errorf("failed to add status db syncers: %w", err)
+	}
+
+	if err := status.AddStatusControllers(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add status controller: %w", err)
 	}
 
 	if err := statussyncer.AddTransport2DBSyncers(mgr, workersPool, conflationManager, conflationReadyQueue, statusTransportObj, statistics); err != nil {
