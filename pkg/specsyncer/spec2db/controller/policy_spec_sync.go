@@ -6,17 +6,29 @@ package controller
 import (
 	"fmt"
 
+	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"open-cluster-management.io/governance-policy-propagator/controllers/common"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 func AddPolicyController(mgr ctrl.Manager, specDB db.SpecDB) error {
+	policyPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      constants.HubOfHubsLocalResource,
+				Operator: metav1.LabelSelectorOpDoesNotExist,
+			},
+		},
+	})
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&policyv1.Policy{}).
+		WithEventFilter(policyPredicate).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
 			specDB:         specDB,

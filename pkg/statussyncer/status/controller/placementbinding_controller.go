@@ -8,17 +8,18 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/equality"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 type placementBindingController struct {
-	client   client.Client
-	log      logr.Logger
-	areEqual func(client.Object, client.Object) bool
+	client client.Client
+	log    logr.Logger
 }
 
 func (c *placementBindingController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -85,31 +86,23 @@ func (c *placementBindingController) updatePolicyStatus(ctx context.Context, nam
 }
 
 func AddPlacementBindingController(mgr ctrl.Manager) error {
+	placementBindingPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      constants.HubOfHubsLocalResource,
+				Operator: metav1.LabelSelectorOpDoesNotExist,
+			},
+		},
+	})
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&policyv1.PlacementBinding{}).
+		WithEventFilter(placementBindingPredicate).
 		Complete(&placementBindingController{
-			client:   mgr.GetClient(),
-			log:      ctrl.Log.WithName("placementbindings-controller"),
-			areEqual: arePlacementBindingsEqual,
+			client: mgr.GetClient(),
+			log:    ctrl.Log.WithName("placementbindings-controller"),
 		}); err != nil {
 		return fmt.Errorf("failed to add placement binding controller to the manager: %w", err)
 	}
 
 	return nil
-}
-
-func arePlacementBindingsEqual(instance1, instance2 client.Object) bool {
-	placementBinding1, ok1 := instance1.(*policyv1.PlacementBinding)
-	placementBinding2, ok2 := instance2.(*policyv1.PlacementBinding)
-
-	if !ok1 || !ok2 {
-		return false
-	}
-
-	placementRefMatch := equality.Semantic.DeepEqual(placementBinding1.PlacementRef, placementBinding2.PlacementRef)
-	subjectsMatch := equality.Semantic.DeepEqual(placementBinding1.Subjects, placementBinding2.Subjects)
-	annotationsMatch := equality.Semantic.DeepEqual(instance1.GetAnnotations(), instance2.GetAnnotations())
-	labelsMatch := equality.Semantic.DeepEqual(instance1.GetLabels(), instance2.GetLabels())
-
-	return placementRefMatch && subjectsMatch && annotationsMatch && labelsMatch
 }
