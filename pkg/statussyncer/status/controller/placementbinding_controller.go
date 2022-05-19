@@ -60,27 +60,23 @@ func (c *placementBindingController) updatePolicyStatus(ctx context.Context, nam
 		return fmt.Errorf("failed to get policy: %w", err)
 	}
 
-	var exists bool
 	//TODO: need to handle placement in future
 	for _, placement := range policy.Status.Placement {
 		if placement.PlacementRule == placementRule {
-			exists = true
-			break
+			return nil
 		}
 	}
 
-	if !exists {
-		originalPolicy := policy.DeepCopy()
+	originalPolicy := policy.DeepCopy()
 
-		policy.Status.Placement = append(policy.Status.Placement, &policyv1.Placement{
-			PlacementBinding: placementBinding,
-			PlacementRule:    placementRule,
-		})
+	policy.Status.Placement = append(policy.Status.Placement, &policyv1.Placement{
+		PlacementBinding: placementBinding,
+		PlacementRule:    placementRule,
+	})
 
-		err = c.client.Status().Patch(ctx, policy, client.MergeFrom(originalPolicy))
-		if err != nil {
-			return fmt.Errorf("failed to update policy CR: %w", err)
-		}
+	err = c.client.Status().Patch(ctx, policy, client.MergeFrom(originalPolicy))
+	if err != nil {
+		return fmt.Errorf("failed to update policy CR: %w", err)
 	}
 	return nil
 }
