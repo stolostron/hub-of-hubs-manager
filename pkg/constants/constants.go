@@ -52,4 +52,7 @@ const (
 
 	// ControlInfoMsgKey - control info message key.
 	ControlInfoMsgKey = "ControlInfo"
+
+	// hubOfHubsLocalResource - local-resource label
+	HubOfHubsLocalResource = "hub-of-hubs.open-cluster-management.io/local-resource"
 )
