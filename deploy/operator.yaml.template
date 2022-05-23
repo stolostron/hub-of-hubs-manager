@@ -22,6 +22,7 @@ spec:
             - --zap-devel=true
             - --manager-namespace=$(POD_NAMESPACE)
             - --watch-namespace=$(WATCH_NAMESPACE)
+            - --transport-type=${TRANSPORT_TYPE}
             - --process-database-url=$(PROCESS_DATABASE_URL)
             - --transport-bridge-database-url=$(TRANSPORT_BRIDGE_DATABASE_URL)
             - --authorization-cabundle-path=/hub-of-hubs-rbac-ca/service-ca.crt
