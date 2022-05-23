@@ -10,14 +10,6 @@ The manager component of [Hub-of-Hubs](https://github.com/stolostron/hub-of-hubs
 
 Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 
-<!-- ## The dependencies chart
-
-![Dependencies](diagrams/dependencies.svg)
-
-## The reconciliation flow
-
-![Reconciliation Flow](diagrams/flowchart.svg) -->
-
 ## Getting Started
 
 ## Environment variables
@@ -65,5 +57,5 @@ make build-images
 2.  Deploy the operator:
 
     ```bash
-    TRANSPORT_TYPE=kafka envsubst < deploy/operator.yaml.template | kubectl apply -n open-cluster-management -f -
+    TRANSPORT_TYPE=kafka REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG=latest envsubst < deploy/operator.yaml.template | kubectl apply -n open-cluster-management -f -
     ```
