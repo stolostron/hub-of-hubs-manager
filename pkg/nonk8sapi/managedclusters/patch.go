@@ -218,7 +218,7 @@ func isAuthorized(user string, groups []string, authorizationURL string, authori
 	dbConnectionPool *pgxpool.Pool, cluster, hubCluster string,
 ) bool {
 	query := fmt.Sprintf(
-		"SELECT COUNT(payload) from status.managed_clusters WHERE payload -> 'metadata' ->> 'name' = '%s' AND 'leaf_hub_name' = '%s' AND %s",
+		"SELECT COUNT(payload) from status.managed_clusters WHERE payload -> 'metadata' ->> 'name' = '%s' AND leaf_hub_name = '%s' AND %s",
 		cluster, hubCluster, filterByAuthorization(user, groups, authorizationURL, authorizationCABundle, gin.DefaultWriter))
 
 	var count int64
