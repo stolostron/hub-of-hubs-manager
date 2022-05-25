@@ -19,3 +19,5 @@ vendor/
 
 # build binary files
 bin
+
+.vscode

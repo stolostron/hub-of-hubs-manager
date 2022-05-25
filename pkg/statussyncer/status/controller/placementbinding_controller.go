@@ -49,8 +49,8 @@ func (c *placementBindingController) Reconcile(ctx context.Context, request ctrl
 }
 
 func (c *placementBindingController) updatePolicyStatus(ctx context.Context, name, namespace,
-	placementRule, placementBinding string) error {
-
+	placementRule, placementBinding string,
+) error {
 	policy := &policyv1.Policy{}
 	err := c.client.Get(ctx, types.NamespacedName{
 		Name:      name,
@@ -60,7 +60,7 @@ func (c *placementBindingController) updatePolicyStatus(ctx context.Context, nam
 		return fmt.Errorf("failed to get policy: %w", err)
 	}
 
-	//TODO: need to handle placement in future
+	// TODO: need to handle placement in future
 	for _, placement := range policy.Status.Placement {
 		if placement.PlacementRule == placementRule {
 			return nil
