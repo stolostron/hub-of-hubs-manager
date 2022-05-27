@@ -31,15 +31,11 @@ func ListStatus(authorizationURL string, authorizationCABundle []byte, dbConnect
 		fmt.Fprintf(gin.DefaultWriter, "got authenticated user: %v\n", user)
 		fmt.Fprintf(gin.DefaultWriter, "user groups: %v\n", groups)
 
-		query := sqlQuery()
-		fmt.Fprintf(gin.DefaultWriter, "query: %v\n", query)
+		complianceQuerySql := "SELECT id, cluster_name, leaf_hub_name, error, compliance FROM status.compliance ORDER BY cluster_name"
+		fmt.Fprintf(gin.DefaultWriter, "query: %v\n", complianceQuerySql)
 
-		handleRows(ginCtx, query, dbConnectionPool)
+		handleRows(ginCtx, complianceQuerySql, dbConnectionPool)
 	}
-}
-
-func sqlQuery() string {
-	return "SELECT id, cluster_name, leaf_hub_name, error, compliance FROM status.compliance ORDER BY cluster_name"
 }
 
 func handleRows(ginCtx *gin.Context, query string, dbConnectionPool *pgxpool.Pool) {
