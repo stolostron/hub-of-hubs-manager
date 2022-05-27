@@ -16,6 +16,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/nonk8sapi/authentication"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/nonk8sapi/managedclusters"
+	"github.com/stolostron/hub-of-hubs-manager/pkg/nonk8sapi/policies"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/specsyncer/db2transport/db"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -87,8 +88,8 @@ func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig 
 
 	routerGroup := router.Group(nonK8sAPIServerConfig.ServerBasePath)
 	routerGroup.GET("/managedclusters", managedclusters.List(nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
-
 	routerGroup.PATCH("/managedclusters/:cluster", managedclusters.Patch(nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
+	routerGroup.GET("/policiesstatus", policies.ListStatus(nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
 
 	err = mgr.Add(&nonK8sApiServer{
 		log: ctrl.Log.WithName("non-k8s-api-server"),

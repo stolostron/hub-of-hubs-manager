@@ -33,7 +33,6 @@ import (
 	statustransport "github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport"
 	statuskafka "github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport/kafka"
 	statussyncservice "github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/transport/syncservice"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
