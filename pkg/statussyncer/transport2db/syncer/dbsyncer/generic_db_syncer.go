@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/bundle/status"
-	"github.com/stolostron/hub-of-hubs-manager/pkg/constants"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs-manager/pkg/statussyncer/transport2db/db"
@@ -61,7 +60,8 @@ func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	idToVersionMapFromDB, err := dbClient.GetResourceIDToVersionByLeafHub(ctx, syncer.dbSchema, syncer.dbTableName, leafHubName)
+	resourceIdentifierToVersionInfoMapFromDB, err := dbClient.GetResourceIdentifiersToVersionByLeafHub(ctx,
+		syncer.dbSchema, syncer.dbTableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", syncer.dbSchema, syncer.dbTableName, err)
 	}
@@ -74,26 +74,26 @@ func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle
 			continue
 		}
 
-		uid := getGenericResourceUID(specificObj)
-		resourceVersionFromDB, objExistsInDB := idToVersionMapFromDB[uid]
+		resourceNameIdentifier := fmt.Sprintf("%s.%s", specificObj.GetNamespace(), specificObj.GetName())
+		resourceVersionInfoFromDB, objExistsInDB := resourceIdentifierToVersionInfoMapFromDB[resourceNameIdentifier]
 
 		if !objExistsInDB { // object not found in the db table
-			batchBuilder.Insert(uid, object)
+			batchBuilder.Insert(string(specificObj.GetUID()), object)
 			continue
 		}
 
-		delete(idToVersionMapFromDB, uid)
+		delete(resourceIdentifierToVersionInfoMapFromDB, resourceNameIdentifier)
 
-		if specificObj.GetResourceVersion() == resourceVersionFromDB {
+		if specificObj.GetResourceVersion() == resourceVersionInfoFromDB.Version {
 			continue // update object in db only if what we got is a different (newer) version of the resource.
 		}
 
-		batchBuilder.Update(uid, object)
+		batchBuilder.Update(resourceVersionInfoFromDB.UID, object)
 	}
 
 	// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
-	for uid := range idToVersionMapFromDB {
-		batchBuilder.Delete(uid)
+	for _, resourceVersionInfoFromDB := range resourceIdentifierToVersionInfoMapFromDB {
+		batchBuilder.Delete(resourceVersionInfoFromDB.UID)
 	}
 
 	if err := dbClient.SendBatch(ctx, batchBuilder.Build()); err != nil {
@@ -103,13 +103,4 @@ func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
 
 	return nil
-}
-
-func getGenericResourceUID(resourceObject metav1.Object) string {
-	if originOwnerReference, found := resourceObject.GetAnnotations()[constants.OriginOwnerReferenceAnnotation]; found {
-		// safe if GetAnnotations() returns nil
-		return originOwnerReference
-	}
-
-	return string(resourceObject.GetUID())
 }
