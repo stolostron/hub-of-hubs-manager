@@ -60,9 +60,9 @@ type AggregatedPoliciesStatusDB interface {
 // GenericStatusResourceDB is the db interface required to manage generic status resources.
 type GenericStatusResourceDB interface {
 	BatchSenderDB
-	// GetResourceIdentifiersToVersionByLeafHub returns a map from resource ns.name to its version information.
-	GetResourceIdentifiersToVersionByLeafHub(ctx context.Context, schema string, tableName string,
-		leafHubName string) (map[string]*GenericResourceVersionInfo, error)
+	// GetResourceIDToVersionByLeafHub returns a map from resource id to its resourceVersion.
+	GetResourceIDToVersionByLeafHub(ctx context.Context, schema string, tableName string,
+		leafHubName string) (map[string]string, error)
 	NewGenericBatchBuilder(schema string, tableName string, leafHubName string) GenericBatchBuilder
 }
 

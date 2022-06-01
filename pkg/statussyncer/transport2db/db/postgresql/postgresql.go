@@ -88,8 +88,6 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, schema str
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'name',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	defer rows.Close()
-
 	result, err := buildKeyValueMapFromRows(rows)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading from table %s.%s - %w", schema, tableName, err)
@@ -227,28 +225,16 @@ func (p *PostgreSQL) NewGenericBatchBuilder(schema string, tableName string,
 	return batch.NewGenericBatchBuilder(schema, tableName, leafHubName)
 }
 
-// GetResourceIdentifiersToVersionByLeafHub returns a map from resource ns.name to its version information.
-func (p *PostgreSQL) GetResourceIdentifiersToVersionByLeafHub(ctx context.Context, schema string, tableName string,
+// GetResourceIDToVersionByLeafHub returns a map from resource id to its resourceVersion.
+func (p *PostgreSQL) GetResourceIDToVersionByLeafHub(ctx context.Context, schema string, tableName string,
 	leafHubName string,
-) (map[string]*db.GenericResourceVersionInfo, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id, payload->'metadata'->>'name',
-		payload->'metadata'->>'namespace', payload->'metadata'->>'resourceVersion' FROM %s.%s 
-		WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
+) (map[string]string, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,
+		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	defer rows.Close()
-
-	result := make(map[string]*db.GenericResourceVersionInfo)
-	for rows.Next() {
-		var id, name, namespace, resourceVersion string
-
-		if err := rows.Scan(&id, &name, &namespace, &resourceVersion); err != nil {
-			return nil, fmt.Errorf("error reading resource row from database - %w", err)
-		}
-
-		result[fmt.Sprintf("%s.%s", namespace, name)] = &db.GenericResourceVersionInfo{
-			UID:     id,
-			Version: resourceVersion,
-		}
+	result, err := buildKeyValueMapFromRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading from table %s.%s - %w", schema, tableName, err)
 	}
 
 	return result, nil
@@ -267,8 +253,6 @@ func (p *PostgreSQL) GetLocalResourceIDToVersionByLeafHub(ctx context.Context, s
 ) (map[string]string, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'uid',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
-
-	defer rows.Close()
 
 	result, err := buildKeyValueMapFromRows(rows)
 	if err != nil {

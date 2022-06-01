@@ -66,11 +66,3 @@ const (
 	// ComplianceType unique type.
 	ComplianceType = "compliance_type"
 )
-
-// GenericResourceVersionInfo wraps a generic resource's info of id and version.
-type GenericResourceVersionInfo struct {
-	// UID is the resource id.
-	UID string
-	// Version is the resource version.
-	Version string
-}
