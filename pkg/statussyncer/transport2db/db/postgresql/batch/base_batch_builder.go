@@ -88,16 +88,16 @@ func (builder *baseBatchBuilder) delete(deleteArgs ...interface{}) {
 }
 
 func (builder *baseBatchBuilder) build() *pgx.Batch {
+	if builder.deleteRowsCount > 0 { // generate DELETE statement for multiple rows into the batch
+		builder.batch.Queue(builder.generateDeleteStatement(), builder.deleteArgs...)
+	}
+
 	if builder.insertRowsCount > 0 { // generate INSERT statement for multiple rows into the batch
 		builder.batch.Queue(builder.generateInsertStatement(), builder.insertArgs...)
 	}
 
 	if builder.updateRowsCount > 0 { // generate UPDATE statement for multiple rows into the batch
 		builder.batch.Queue(builder.generateUpdateStatement(), builder.updateArgs...)
-	}
-
-	if builder.deleteRowsCount > 0 { // generate DELETE statement for multiple rows into the batch
-		builder.batch.Queue(builder.generateDeleteStatement(), builder.deleteArgs...)
 	}
 
 	return builder.batch
