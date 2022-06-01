@@ -61,7 +61,11 @@ func (builder *PoliciesBatchBuilder) UpdateClusterCompliance(policyID string, cl
 ) {
 	// if adding args will exceeded max args limit, create update statement from current args and zero the count/args.
 	if len(builder.updateClusterComplianceArgs)+clusterComplianceUpdateArgsCount >= maxColumnsUpdateInStatement {
-		builder.batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)
+		builder.updateBatchItems = append(builder.updateBatchItems, &batchItem{
+			query:     builder.generateUpdateClusterComplianceStatement(),
+			arguments: builder.updateClusterComplianceArgs,
+		})
+
 		builder.updateClusterComplianceArgs = make([]interface{}, 0)
 		builder.updateClusterComplianceRowsCount = 0
 	}
