@@ -16,11 +16,18 @@ const (
 	deleteStartingIndex         = 2
 )
 
+type batchItem struct {
+	query     string
+	arguments []interface{}
+}
+
 func newBaseBatchBuilder(schema string, tableName string, tableSpecialColumns map[int]string, leafHubName string,
 	deleteRowKey string,
 ) *baseBatchBuilder {
 	return &baseBatchBuilder{
-		batch:               &pgx.Batch{},
+		deleteBatchItems:    make([]*batchItem, 0),
+		insertBatchItems:    make([]*batchItem, 0),
+		updateBatchItems:    make([]*batchItem, 0),
 		schema:              schema,
 		tableName:           tableName,
 		tableSpecialColumns: tableSpecialColumns,
@@ -36,7 +43,9 @@ func newBaseBatchBuilder(schema string, tableName string, tableSpecialColumns ma
 }
 
 type baseBatchBuilder struct {
-	batch                   *pgx.Batch
+	deleteBatchItems        []*batchItem
+	insertBatchItems        []*batchItem
+	updateBatchItems        []*batchItem
 	schema                  string
 	tableName               string
 	tableSpecialColumns     map[int]string
@@ -54,7 +63,11 @@ type baseBatchBuilder struct {
 func (builder *baseBatchBuilder) insert(insertArgs ...interface{}) {
 	// if adding args will exceeded max args limit, create insert statement from current args and zero the count/args.
 	if len(builder.insertArgs)+len(insertArgs) >= maxColumnsUpdateInStatement {
-		builder.batch.Queue(builder.generateInsertStatement(), builder.insertArgs...)
+		builder.insertBatchItems = append(builder.insertBatchItems, &batchItem{
+			query:     builder.generateInsertStatement(),
+			arguments: builder.insertArgs,
+		})
+
 		builder.insertArgs = make([]interface{}, 0)
 		builder.insertRowsCount = 0
 	}
@@ -66,7 +79,11 @@ func (builder *baseBatchBuilder) insert(insertArgs ...interface{}) {
 func (builder *baseBatchBuilder) update(updateArgs ...interface{}) {
 	// if adding args will exceeded max args limit, create update statement from current args and zero the count/args.
 	if len(builder.updateArgs)+len(updateArgs) >= maxColumnsUpdateInStatement {
-		builder.batch.Queue(builder.generateUpdateStatement(), builder.updateArgs...)
+		builder.updateBatchItems = append(builder.updateBatchItems, &batchItem{
+			query:     builder.generateUpdateStatement(),
+			arguments: builder.updateArgs,
+		})
+
 		builder.updateArgs = make([]interface{}, 0)
 		builder.updateRowsCount = 0
 	}
@@ -78,7 +95,11 @@ func (builder *baseBatchBuilder) update(updateArgs ...interface{}) {
 func (builder *baseBatchBuilder) delete(deleteArgs ...interface{}) {
 	// if adding args will exceeded max args limit, create delete statement from current args and zero the count/args.
 	if len(builder.deleteArgs)+len(deleteArgs) >= maxColumnsUpdateInStatement {
-		builder.batch.Queue(builder.generateDeleteStatement(), builder.deleteArgs...)
+		builder.deleteBatchItems = append(builder.deleteBatchItems, &batchItem{
+			query:     builder.generateDeleteStatement(),
+			arguments: builder.deleteArgs,
+		})
+
 		builder.deleteArgs = append(make([]interface{}, 0), builder.leafHubName) // leafHubName is first arg in delete
 		builder.deleteRowsCount = 0
 	}
@@ -88,19 +109,34 @@ func (builder *baseBatchBuilder) delete(deleteArgs ...interface{}) {
 }
 
 func (builder *baseBatchBuilder) build() *pgx.Batch {
-	if builder.insertRowsCount > 0 { // generate INSERT statement for multiple rows into the batch
-		builder.batch.Queue(builder.generateInsertStatement(), builder.insertArgs...)
-	}
+	batch := &pgx.Batch{}
 
-	if builder.updateRowsCount > 0 { // generate UPDATE statement for multiple rows into the batch
-		builder.batch.Queue(builder.generateUpdateStatement(), builder.updateArgs...)
+	// append deletes first
+	for _, batchItem := range builder.deleteBatchItems {
+		batch.Queue(batchItem.query, batchItem.arguments)
 	}
 
 	if builder.deleteRowsCount > 0 { // generate DELETE statement for multiple rows into the batch
-		builder.batch.Queue(builder.generateDeleteStatement(), builder.deleteArgs...)
+		batch.Queue(builder.generateDeleteStatement(), builder.deleteArgs...)
+	}
+	// then inserts
+	for _, batchItem := range builder.insertBatchItems {
+		batch.Queue(batchItem.query, batchItem.arguments)
 	}
 
-	return builder.batch
+	if builder.insertRowsCount > 0 { // generate INSERT statement for multiple rows into the batch
+		batch.Queue(builder.generateInsertStatement(), builder.insertArgs...)
+	}
+	// finally, updates
+	for _, batchItem := range builder.updateBatchItems {
+		batch.Queue(batchItem.query, batchItem.arguments)
+	}
+
+	if builder.updateRowsCount > 0 { // generate UPDATE statement for multiple rows into the batch
+		batch.Queue(builder.generateUpdateStatement(), builder.updateArgs...)
+	}
+
+	return batch
 }
 
 func (builder *baseBatchBuilder) setUpdateStatementFunc(generateUpdateStatementFunc generateStatementFunc) {

@@ -44,8 +44,7 @@ type PoliciesBatchBuilder struct {
 
 // Insert adds the given (policyID, clusterName, errorString, compliance) to the batch to be inserted to the db.
 func (builder *PoliciesBatchBuilder) Insert(policyID string, clusterName string, errorString string,
-	compliance db.ComplianceStatus,
-) {
+	compliance db.ComplianceStatus) {
 	builder.insert(policyID, clusterName, builder.leafHubName, errorString, compliance)
 }
 
@@ -57,11 +56,14 @@ func (builder *PoliciesBatchBuilder) UpdatePolicyCompliance(policyID string, com
 
 // UpdateClusterCompliance adds the given row args to be updated in the batch.
 func (builder *PoliciesBatchBuilder) UpdateClusterCompliance(policyID string, clusterName string,
-	compliance db.ComplianceStatus,
-) {
+	compliance db.ComplianceStatus) {
 	// if adding args will exceeded max args limit, create update statement from current args and zero the count/args.
 	if len(builder.updateClusterComplianceArgs)+clusterComplianceUpdateArgsCount >= maxColumnsUpdateInStatement {
-		builder.batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)
+		builder.updateBatchItems = append(builder.updateBatchItems, &batchItem{
+			query:     builder.generateUpdateClusterComplianceStatement(),
+			arguments: builder.updateClusterComplianceArgs,
+		})
+
 		builder.updateClusterComplianceArgs = make([]interface{}, 0)
 		builder.updateClusterComplianceRowsCount = 0
 	}
@@ -92,15 +94,15 @@ func (builder *PoliciesBatchBuilder) DeleteClusterStatus(policyID string, cluste
 func (builder *PoliciesBatchBuilder) Build() interface{} {
 	batch := builder.build()
 
-	if builder.updateClusterComplianceRowsCount > 0 {
-		batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)
-	}
-
 	if len(builder.deleteClusterComplianceArgs) > 0 {
 		for policyID := range builder.deleteClusterComplianceArgs {
 			batch.Queue(builder.generateDeleteClusterComplianceStatement(policyID),
 				builder.deleteClusterComplianceArgs[policyID]...)
 		}
+	}
+	
+	if builder.updateClusterComplianceRowsCount > 0 {
+		batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)
 	}
 
 	return batch
