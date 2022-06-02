@@ -94,15 +94,15 @@ func (builder *PoliciesBatchBuilder) DeleteClusterStatus(policyID string, cluste
 func (builder *PoliciesBatchBuilder) Build() interface{} {
 	batch := builder.build()
 
-	if builder.updateClusterComplianceRowsCount > 0 {
-		batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)
-	}
-
 	if len(builder.deleteClusterComplianceArgs) > 0 {
 		for policyID := range builder.deleteClusterComplianceArgs {
 			batch.Queue(builder.generateDeleteClusterComplianceStatement(policyID),
 				builder.deleteClusterComplianceArgs[policyID]...)
 		}
+	}
+	
+	if builder.updateClusterComplianceRowsCount > 0 {
+		batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)
 	}
 
 	return batch
