@@ -43,8 +43,6 @@ func AddPlacementRuleStatusDBSyncer(mgr ctrl.Manager, database db.DB,
 func syncPlacementRules(ctx context.Context, log logr.Logger, database db.DB,
 	k8sClient client.Client,
 ) {
-	log.Info("performing sync of placementrule-status")
-
 	rows, err := database.GetConn().Query(ctx,
 		fmt.Sprintf(`SELECT payload->'metadata'->>'name', payload->'metadata'->>'namespace' 
 		FROM spec.%s WHERE deleted = FALSE`, placementRulesSpecTableName))
@@ -69,8 +67,6 @@ func syncPlacementRules(ctx context.Context, log logr.Logger, database db.DB,
 func handlePlacementRuleStatus(ctx context.Context, log logr.Logger, database db.DB,
 	k8sClient client.Client, placementRuleName string, placementRuleNamespace string,
 ) {
-	log.Info("handling a placementrule", "name", placementRuleName, "namespace", placementRuleNamespace)
-
 	placementRuleStatus, statusEntriesFound, err := getPlacementRuleStatus(ctx, database,
 		placementRuleName, placementRuleNamespace)
 	if err != nil {

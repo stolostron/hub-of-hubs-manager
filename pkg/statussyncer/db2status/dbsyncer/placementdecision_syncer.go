@@ -38,8 +38,6 @@ func AddPlacementDecisionDBSyncer(mgr ctrl.Manager, database db.DB,
 func syncPlacementDecisions(ctx context.Context, log logr.Logger, database db.DB,
 	k8sClient client.Client,
 ) {
-	log.Info("performing sync of placement-decision")
-
 	rows, err := database.GetConn().Query(ctx,
 		fmt.Sprintf(`SELECT id, payload->'metadata'->>'name', payload->'metadata'->>'namespace' 
 		FROM spec.%s WHERE deleted = FALSE`, placementsSpecTableName))
@@ -64,8 +62,6 @@ func syncPlacementDecisions(ctx context.Context, log logr.Logger, database db.DB
 func handlePlacementDecision(ctx context.Context, log logr.Logger, database db.DB,
 	k8sClient client.Client, specPlacementUID string, placementName string, placementNamespace string,
 ) {
-	log.Info("handling a placement", "name", placementName, "namespace", placementNamespace)
-
 	placementDecision, err := getAggregatedPlacementDecisions(ctx, database, placementName,
 		placementNamespace)
 	if err != nil {

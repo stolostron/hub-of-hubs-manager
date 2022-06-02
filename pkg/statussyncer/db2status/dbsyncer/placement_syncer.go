@@ -38,8 +38,6 @@ func AddPlacementStatusDBSyncer(mgr ctrl.Manager, database db.DB,
 func syncPlacements(ctx context.Context, log logr.Logger, database db.DB,
 	k8sClient client.Client,
 ) {
-	log.Info("performing sync of placement-status")
-
 	rows, err := database.GetConn().Query(ctx,
 		fmt.Sprintf(`SELECT payload->'metadata'->>'name', payload->'metadata'->>'namespace' 
 		FROM spec.%s WHERE deleted = FALSE`, placementsSpecTableName))
@@ -64,8 +62,6 @@ func syncPlacements(ctx context.Context, log logr.Logger, database db.DB,
 func handlePlacementStatus(ctx context.Context, log logr.Logger, database db.DB,
 	k8sClient client.Client, placementName string, placementNamespace string,
 ) {
-	log.Info("handling a placement", "name", placementName, "namespace", placementNamespace)
-
 	placementStatus, statusEntriesFound, err := getPlacementStatus(ctx, database,
 		placementName, placementNamespace)
 	if err != nil {
