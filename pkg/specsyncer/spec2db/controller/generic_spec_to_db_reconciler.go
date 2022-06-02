@@ -36,8 +36,6 @@ const (
 
 func (r *genericSpecToDBReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info(fmt.Sprintf("Reconciling %s ...", r.tableName))
-
 	instanceUID, instance, err := r.processCR(ctx, request, reqLogger)
 	if err != nil {
 		reqLogger.Error(err, "Reconciliation failed")
@@ -45,7 +43,6 @@ func (r *genericSpecToDBReconciler) Reconcile(ctx context.Context, request ctrl.
 	}
 
 	if instance == nil {
-		reqLogger.Info("Reconciliation complete.")
 		return ctrl.Result{}, nil
 	}
 
@@ -64,8 +61,6 @@ func (r *genericSpecToDBReconciler) Reconcile(ctx context.Context, request ctrl.
 			return ctrl.Result{}, err
 		}
 	}
-
-	reqLogger.Info("Reconciliation complete.")
 
 	return ctrl.Result{}, err
 }
