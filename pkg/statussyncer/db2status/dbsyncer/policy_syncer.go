@@ -47,8 +47,6 @@ func AddPolicyDBSyncer(mgr ctrl.Manager, database db.DB, statusSyncInterval time
 func syncPolicies(ctx context.Context, log logr.Logger, database db.DB, k8sClient client.Client,
 	dbEnumToPolicyComplianceStateMap map[string]policyv1.ComplianceState,
 ) {
-	log.Info("performing sync of policies status")
-
 	rows, err := database.GetConn().Query(ctx,
 		fmt.Sprintf(`SELECT id, payload->'metadata'->>'name', payload->'metadata'->>'namespace' 
 		FROM spec.%s WHERE deleted = FALSE`, policiesSpecTableName))

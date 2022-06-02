@@ -40,8 +40,6 @@ func AddSubscriptionReportDBSyncer(mgr ctrl.Manager, database db.DB,
 func syncSubscriptionReports(ctx context.Context, log logr.Logger, database db.DB,
 	k8sClient client.Client,
 ) {
-	log.Info("performing sync of subscription-report")
-
 	rows, err := database.GetConn().Query(ctx,
 		fmt.Sprintf(`SELECT id, payload->'metadata'->>'name', payload->'metadata'->>'namespace' 
 		FROM spec.%s WHERE deleted = FALSE`, subscriptionsSpecTableName))
@@ -66,8 +64,6 @@ func syncSubscriptionReports(ctx context.Context, log logr.Logger, database db.D
 func handleSubscriptionReport(ctx context.Context, log logr.Logger, database db.DB,
 	k8sClient client.Client, specSubscriptionUID string, subscriptionName string, subscriptionNamespace string,
 ) {
-	log.Info("handling a subscription", "name", subscriptionName, "namespace", subscriptionNamespace)
-
 	subscriptionReport, err := getAggregatedSubscriptionReport(ctx, database, subscriptionName,
 		subscriptionNamespace)
 	if err != nil {
