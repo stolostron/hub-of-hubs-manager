@@ -95,7 +95,7 @@ func (builder *baseBatchBuilder) update(updateArgs ...interface{}) {
 func (builder *baseBatchBuilder) delete(deleteArgs ...interface{}) {
 	// if adding args will exceeded max args limit, create delete statement from current args and zero the count/args.
 	if len(builder.deleteArgs)+len(deleteArgs) >= maxColumnsUpdateInStatement {
-		builder.deleteBatchItems = append(builder.updateBatchItems, &batchItem{
+		builder.deleteBatchItems = append(builder.deleteBatchItems, &batchItem{
 			query:     builder.generateDeleteStatement(),
 			arguments: builder.deleteArgs,
 		})
